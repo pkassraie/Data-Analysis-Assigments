@@ -1,0 +1,258 @@
+---
+title: "HW9"
+author: "P. kassraie"
+date: "December 14, 2016"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE , warning = F, error = F, message = F)
+```
+
+```{r}
+library(EBImage)
+library(cluster)
+library(fpc)
+library(ggplot2)
+library(ggmap)
+library(dplyr)
+require(highcharter)
+library(tidyr)
+library(magrittr)
+```
+
+## 1. Map Clustering
+
+Reading all the flag images:
+
+```{r}
+#Gathering the data
+filenames <- list.files("data/flag", pattern="*.png", full.names=TRUE)
+flags <- lapply(filenames,readImage)
+```
+
+We calculate the following features for each image:
+
+  * Hue Histogram
+  * Geometrical features of each channel
+  
+Hue is the first element in the HSV colorspace, it represents the color (as we see it) of a pixel.
+Geometrical features are calculated using Computefeatures function in EBImage, which is calculated for all the three channels.
+
+  
+```{r}
+
+par(mfrow=c(1,1))
+Features = matrix(nrow = 196, ncol = 35)
+
+
+for (i in 1:length(flags)){
+
+  #Color Channels 
+img = flags[[i]]
+imgDm <- dim(img)
+imgRGB <- data.frame(
+  R = as.vector(img[,,1]),
+  G = as.vector(img[,,2]),
+  B = as.vector(img[,,3])
+  )
+
+# Color histogram
+HSV = rgb2hsv(imgRGB$R,imgRGB$G,imgRGB$B)
+Hhist = hist(HSV[1,], breaks = seq(0,1,l=21) , plot=F)$counts
+Features[i, 1:20] = Hhist
+
+
+# Geometrical Features
+Features[i,21:25] = ifelse(length(computeFeatures.moment(img[,,1]))==0,rep(0,5),computeFeatures.moment(img[,,1]))
+Features[i,26:30] = ifelse(length(computeFeatures.moment(img[,,2]))==0,rep(0,5),computeFeatures.moment(img[,,2]))
+Features[i,31:35] = ifelse(length(computeFeatures.moment(img[,,3]))==0,rep(0,5),computeFeatures.moment(img[,,3]))
+}
+
+# renaming the rows
+countries = character()
+n=1
+for (i in filenames){
+  countries[n] = unlist(strsplit(i,split = c("/")))[3]
+  countries[n] = unlist(strsplit(countries[n],split = "[.]"))[1]
+  n=n+1
+}
+row.names(Features) = countries
+
+```
+
+Now that we have created the feature vector, let's cluster the data. But first, we better check whether $k=5$ is a good choise.
+
+
+```{r}
+
+wss <- 1:20
+for (i in 1:20) {
+  k3 = kmeans(Features,centers = i, nstart = 50)
+  wss[i] <- k3$tot.withinss
+}
+
+plot(1:20, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares")
+```
+
+The plot above shows that $k=6$ is a better choice than $k=5$ since there can be seen a breakage/knee in the plot right after $k=6$.
+
+I'll divide the data to 6 clusters.
+
+```{r}
+
+clus = kmeans(Features,centers = 6)
+clusplot(Features, clus$cluster, color=TRUE, shade=TRUE, 
+         labels=2, lines=0)
+
+# a new dataframe including the countries and their cluster number
+
+FlagClus <- data.frame(filenames, countries,clus$cluster)
+names(FlagClus) <- c("address","Country.Code","Cluster")
+
+
+hchart(FlagClus, type = "column", x=Country.Code, y=Cluster, group = Cluster) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Flags of Each Cluster") %>%
+  hc_xAxis(title = list(text = "Country Name")) %>% 
+  hc_yAxis(title = list(text = "Cluster"))
+```
+
+In the plot above we see how the clusters are assigned.
+
+The flags of each cluster are drawn below:
+
+```{r}
+
+
+for(i in 1:5){
+  temp = filter(FlagClus,Cluster ==i)
+  par(mfrow=c(12,5))
+  sstring = paste("Cluster",i," Includes the Following Flags:")
+  print(sstring)
+  for(j in temp$address){
+    filename = paste(j)
+    pic = readImage(filename)
+    display(pic,method = "raster")
+  }
+}
+
+```
+
+## 2. Countires with a similar flag to iran
+
+In Iran's cluster, we calculate the euclidean distance of all the countries with iran and choose the top 5.
+
+```{r}
+
+# Selecting the Countries in the cluster including iran
+n <- FlagClus$Cluster[which(FlagClus$Country.Code=="ir")]
+FlagClus %>% filter(.,Cluster==n) -> temp
+row.names(temp) = temp$Country.Code
+
+# Selecting the Feature Matrix for those countries and calcualting the distnce
+Features[temp$Country.Code,]->Similars
+A = dist(Similars, method = "euclidean", diag = FALSE, upper = FALSE, p = 2)
+
+# Reshaping and sorting
+m <- data.frame(t(combn(rownames(Similars),2)), as.numeric(A))
+names(m) <- c("c1", "c2", "distance")
+m %>% filter(c1=="ir"|c2=="ir")->m
+m = m[order(m$distance),]
+# the following are chosen after running the kmeans algorithm for several times
+Top5 = c('lb','iq','sd','eh','sy')
+
+
+# Ploting
+temp = filter(FlagClus, Country.Code %in% Top5)
+par(mfrow=c(5,1))
+  for(j in temp$address){
+    filename = paste(j)
+    pic = readImage(filename)
+    display(pic,method = "raster")
+  }
+par(mfrow=c(1,1))
+```
+
+
+## 3. Iran's Map
+
+
+```{r}
+#Loading the Data:
+load("~/University/5th Semester/Data Analysis/Assignments/HW9/data/iran.RData")
+load("~/University/5th Semester/Data Analysis/Assignments/HW9/data/historical_txt_data_26112015.RData")
+
+quakedata$Lat. = as.numeric(as.character(quakedata$Lat.))
+quakedata$Long. = as.numeric(as.character(quakedata$Long.))
+quakedata$Mag. = as.numeric(as.character(quakedata$Mag.))
+
+quakedata = filter(quakedata, !is.na(quakedata$Lat.))
+webdata = readRDS("data/historical_web_data_26112015.rds")
+webdata$Latitude = as.integer(webdata$Latitude)
+webdata$Longitude = as.integer(webdata$Longitude)
+
+iran = get_map(location = "Iran",zoom=4)
+```
+
+calculating the number of earth quake and sum of earth quake severity over time:
+
+```{r}
+
+detachAllPackages <- function() {
+
+  basic.packages <- c("package:stats","package:graphics","package:grDevices","package:utils","package:datasets","package:methods","package:base")
+
+  package.list <- search()[ifelse(unlist(gregexpr("package:",search()))==1,TRUE,FALSE)]
+
+  package.list <- setdiff(package.list,basic.packages)
+
+  if (length(package.list)>0)  for (package in package.list) detach(package, character.only=TRUE)
+
+}
+
+detachAllPackages()
+
+library(dplyr)
+library(magrittr)
+library(ggmap)
+library(ggplot2)
+
+quakedata %>% mutate(lat= round(Lat./0.5)*0.5, lon=round(Long./0.5)*0.5 ) -> quakedata
+
+quakedata %>% group_by(lat,lon) %>% summarise(count = n(),S = sum(Mag.)) -> data
+
+#Number Map
+ggmap(iran) +
+  geom_point(aes(x = lon ,y = lat, size = count), data = data,alpha = .5, color="indianred")+
+  labs(title ="Number of Earthquake")
+
+#Severity Map
+ggmap(iran) +
+  geom_point(aes(x = lon ,y = lat ,size = S), data =data,alpha = .5, color="royalblue")+
+  labs(title ="Severity of Earthquake")
+
+
+```
+
+The two worst places are:
+
+```{r}
+maxc = max(data$count)
+maxs = max(data$S)
+datac = filter(data,count==maxc)
+ggmap(iran) +
+  geom_point(aes(x = lon ,y = lat ,size = S), data =datac,alpha = .5, color="indianred")+
+  labs(title ="Number of Earthquake")
+
+datas = filter(data,S==maxs)
+ggmap(iran) +
+  geom_point(aes(x = lon ,y = lat ,size = S), data =datas,alpha = .5, color="royalblue")+
+  labs(title ="Severity of Earthquake")
+
+```
+
