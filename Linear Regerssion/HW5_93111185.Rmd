@@ -1,0 +1,374 @@
+---
+title: "HW5"
+author: "Parnian kassraie - 93111185"
+date: "November 1, 2016"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,error=F,message = F,warning = F,fig.align = "center",fig.width = 8)
+```
+
+```{r}
+#Libraries
+library(readxl)
+library(mosaic)
+library(dplyr)
+library(highcharter)
+library(magrittr)
+library(lmtest)
+library(car)
+library(corrplot)
+library(DAAG)
+library(bootstrap)
+```
+
+```{r}
+#Data
+auto=read.csv("data/ToyotaCorolla.csv")
+car=read_excel("data/ToyotaCorolla.xls",sheet = 1)
+field=read_excel("data/ToyotaCorolla.xls",sheet = 2)
+car$Fuel_Type = as.factor(car$Fuel_Type)
+car$Color=as.factor(car$Color)
+colnames(car)[4]="Age"
+```
+
+## 1. A Matrix of Plots
+
+
+```{r}
+# Scatterplot Matrices
+scatterplotMatrix(~Price+HP+KM+Mfg_Year+Weight, data=car,
+                  spread=FALSE, smoother.args=list(lty=2),
+                  main="Scatter Plot Matrix")
+```
+
+***
+
+## 2. Correlation Matrix & Variable Selection
+
+```{r}
+M=cor(car[c(3,4,5,6,7,9,12,13,14,16,18,22:38)])
+corrplot(M,tl.srt=60,order = "AOE")
+
+M2=cor(car[c(3,4,6,7,18,25,26,27,28)])
+corrplot(M2,tl.srt=60,addCoef.col = "darkgray")
+
+```
+
+Most significant features in determining car price:
+
+Variable       | Correlation With Price
+-------------- | ----------------------
+Age            |-0.8765905
+Mfg-Year       |0.8851592
+KM             |-0.56996016
+Weight         |0.58119759
+Airco          |0.4292594
+Automatic-airco|0.5882620
+Boardcomputer  |0.6012920
+CD-Player      |0.4813744
+
+Above, the variables with an absolute correlation value more that 0.3 are listed. Other variables are either coded in these ones or are irrelevant to the cars' prices. Note that how Age and Manufacturing year are similar.
+
+***
+
+## 3. Fitting A linear Model
+
+```{r}
+fit<-lm(Price~.-Model-Id-Age,car)
+summary(fit)
+```
+
+The variable _Id_ specifically explains all the variations in the data, since there's a 1-1 mapping between Id and price, So I'm omitting this variable.
+
+In addition, I'll be ommition the variable _Model_, since it may violate the Independence assumption. The prices of the cars with the same model are rather correlated and increase the autocorrelation matrix values.
+
+The variable _Age_ and _Mfg-Year_ are basically the same thing, So one of them is ommited as well.
+
+
+***
+
+## 4. Actual Price vs. Predicted Price
+
+```{r}
+highchart() %>% 
+  hc_add_series_scatter(x=car$Id,y=car$Price,name = "Actual Prices",showInLegend = T) %>% 
+  hc_add_series_scatter(x=car$Id,y=fitted(fit),name = "Estimated Prices",showInLegend = T) %>% 
+  hc_title(text="Comparision of Car Prices & Model Estimated Prices") %>% 
+  hc_yAxis(title = list(text = "Prices ($)")) %>% 
+  hc_xAxis(title = list(text = "Car ID"))
+
+
+highchart() %>% 
+  hc_add_series_scatter(x=car$Price,y=round(fitted(fit)),name="Linear Model",showInLegend = T) %>% 
+  hc_title(text="Car Prices vs. Model Estimated Prices") %>% 
+  hc_yAxis(title = list(text = "Estimated Price")) %>% 
+  hc_xAxis(title = list(text = "Actual Price")) %>% 
+  hc_add_series_scatter(x=car$Price,y=car$Price,name="Actual Data Points",showInLegend = T)
+```
+
+We expect the scatters in the second plot to be a 45 degree line, like the gray one drawn.
+There aren't many outliers and the data is distributed equally around the theoretical line.
+Also, the intercept and the slop is similar to what we expected. 
+
+It seems that the model fits the data really well.
+
+***
+
+## 5. R-squared
+
+```{r}
+
+#Manually:
+Est=round(fitted(fit))
+car2<-car
+car2[,"Est"]  <- Est
+Mean=round(mean(car2$Price))
+car2 %>% mutate(difn=Est-Mean,diffd=Price-Mean) %>% mutate(difn2=difn^2, diffd2=diffd^2)->car2
+Rsq=sum(car2$difn2)/sum(car2$diffd2)
+Rsq
+remove(car2)
+#we can also take it from summary(fit)
+```
+
+Here We have $R^2=0.910$ this number say's that 91.0% of the data's variations is explained with our model. Given that we have used all the possible variables, we can't reach a number higher and this must be satisfying.
+Note that R-squared increases with the number of explanatory variables. But Adjusted R-squared is normalized over the number of independent variables and has a value of 90% as well. So we can feel confident about our model.
+
+***
+
+## 6. Redundant Variables
+
+```{r}
+summary(fit)
+```
+
+Signif Codes show that some of the variables aren't as effective. Let's remove those.
+
+```{r}
+fit2<-lm(Price~.-Id-Model-Age-Met_Color-
+           Color-cc-Doors-Cylinders-Gears-Airbag_1-Airbag_2-
+           Central_Lock-Power_Steering-Radio-Mistlamps-Radio_cassette,car)
+summary(fit2)
+
+highchart() %>% 
+  hc_add_series_scatter(x=car$Id,y=car$Price,name = "Actual Prices",showInLegend = T) %>% 
+  hc_add_series_scatter(x=car$Id,y=fitted(fit2),name = "Estimated Prices",showInLegend = T) %>% 
+  hc_title(text="Comparision of Car Prices & Model Estimated Prices") %>% 
+  hc_yAxis(title = list(text = "Prices ($)")) %>% 
+  hc_xAxis(title = list(text = "Car ID"))
+highchart() %>% 
+  hc_add_series_scatter(x=car$Price,y=round(fitted(fit2)),name="Linear Model",showInLegend = T) %>% 
+  hc_title(text="Car Prices vs. Model Estimated Prices") %>% 
+  hc_yAxis(title = list(text = "Estimated Price")) %>% 
+  hc_xAxis(title = list(text = "Actual Price")) %>% 
+  hc_add_series_scatter(x=car$Price,y=car$Price,name="Actual Data Points",showInLegend = T)
+```
+
+As is can be seen above, not much as changed with removing those redundant variables. However, If we calculate the SSE, we encounter a slight difference of 2% increase.
+
+```{r}
+j=sum(resid(fit)*resid(fit))
+j2=sum(resid(fit2)*resid(fit2))
+perc=round((j2-j)/j,3)
+```
+
+Model | SSR
+----- | ----
+1st   | 1684296477
+2nd   | 1731926886
+
+$$\Delta=(SSE_2-SSE_1)/SSE_1=0.028$$
+
+We'll continue with the second model.
+
+***
+
+## 7. Residues: Normality, Independance & Constant Variance
+
+First, We'll draw the diagnostic plots and then we'll start analyzing them.
+
+```{r}
+par(mfrow=c(2,2))
+plot(fit2)
+par(mfrow=c(1,1))
+```
+
+### Normality:
+
+```{r}
+Res=resid(fit2)
+highchart() %>% 
+  hc_add_series_density(density(Res)) %>% 
+  hc_title(text="Residual values' Distribution") %>% 
+  hc_yAxis(title = list(text = "Probability")) %>% 
+  hc_xAxis(title = list(text = "Residual"))
+```
+
+We have assumed that the reponse variable is sampled form normal distribution. If so, the residual values should have a normal distribution around 0. The Q-Q plot shows the standardized residuals against the values of residues if the response variable was normal.
+If the normality assumption is right, then all the point should belong to the 45 degree straight line, else, the assumption has been false.
+
+Neglecting the few points on the edges of the plot, The plot shows that we haven't violated the normality assumption eventhough Some of the variables we're using, Such as BoardComputer are binomial.
+
+_**Normality Assumption: True**_
+
+### Independence
+
+Using the diagnostic plots above, we can't tell whether the price values are independent. This assumption is usually violated when $Y$ is a timeseries variable and $Y_n$ depends on $Y_n_-_1$. We'll use a Durbin-wastson Test to findout if theres an autocorrelation between error values, meaning that the independence assumpution is false.
+
+```{r}
+# Test for Autocorrelated Errors
+dwtest(fit2)
+```
+
+It can be seen that with a _p-value=1.4e-08_ we can rejest the null hypothesis and approve the independence assumption.
+
+_**Independence Assumption: True**_
+
+### Homoscedasticity
+
+We should check the Scale Location Plot, it shows if residuals are spread equally along the actual price values (predictors). This way we can check whether the price variance varies with the levels of the explanatory variables. This assumption is met because the scatter plot is randomly spread around a horizontal line.
+
+_**Homoscedasticity Assumption: True**_
+
+***
+
+## 8. Linear Model Sufficiency & Higher Orders
+
+The current model fits the data quite well and follows the regression model assumption. But it's possible that maybe some of the variables are more effective, or they don't have a linear relation with the reponse variable. We'll test a polynomial regression model to see if thats better.
+
+```{r}
+pcar<-select(car,Id,Price,Age,KM,Weight,Boardcomputer)
+pfit<-lm(Price ~ polym(Age,KM,Weight,Boardcomputer,degree=2, raw=TRUE),pcar)
+summary(pfit)
+
+
+highchart() %>% 
+  hc_add_series_scatter(x=pcar$Price,y=round(fitted(pfit)),name="Linear Model",showInLegend = T) %>% 
+  hc_title(text="Polynomial Model") %>% 
+  hc_yAxis(title = list(text = "Estimated Price")) %>% 
+  hc_xAxis(title = list(text = "Actual Price")) %>% 
+  hc_add_series_scatter(x=pcar$Price,y=pcar$Price,name="Actual Data Points",showInLegend = T)
+
+```
+
+Let's compare the results:
+
+  * This model has fewer number of independant variables, but more degrees of freedom.
+  * value of R-squared has dropped, Meaning that this model isn't as informative as the previous one, when explanianing the variations in the data.
+  * The statement above can be explained with the fact that we have fewer variables now.
+  * This model is more powerful for estimating extreme values, forexample, see how it has predicted the most expensive cars (30k$ and higher)
+  * In conclusion, by Looking at the probabilities in the fitted model, we see that terms of higher order are less significant than the linear terms (look at the pfit summary). Thus, our linear model works just fine and there's no need for a polynomial model.
+  
+***
+
+## 9. Predict The Output For The New Dataset
+
+We fit the model on half of the data and then, evaluate the predicted price for the other half.
+
+```{r}
+#Creating Test and Training Data:
+Test <- car[sample(x=car$Id,size=length(car$Id)/2,replace = FALSE),]
+car %>% filter(! Id %in% Test$Id)->Train
+
+Redun = c("Model","Age", "Met_Color",
+           "Color","cc","Doors","Cylinders","Gears","Airbag_1","Airbag_2",
+           "Central_Lock","Power_Steering","Radio","Mistlamps","Radio_cassette")
+
+Test<-Test[ , !(names(Test) %in% Redun)]
+Train<-Train[ , !(names(Train) %in% Redun)]
+
+# Fitting on the Training Data
+valfit <- lm(Price~.-Id,Train)
+
+#predicting Price for the Test Data
+Predict <- predict(valfit,newdata = Test)
+
+#Calculating Normalized Error
+MeanP=round(mean(Test$Price))
+Test[,"Predict"]<-Predict
+Test %>% mutate(SE=(Predict-Price)^2,NormErr=(Predict-Price)^2/Price^2)->Test
+
+SSE=sum(Test$SE,na.rm=T)
+MeanNormEr = round(mean(Test$NormErr,na.rm=T),3)
+
+```
+
+The Sum of Squared Prediction Errors is about _926215490_ dollars squared. This doesn't give us a good sense of how the data is predicted. I've calculated the normalized prediction error for each of the cars in the test data. Distribution of this normalized Error with a mean value of _0.014_, is plotted below.
+
+```{r}
+
+highchart() %>% 
+  hc_add_series_density(density(Test$NormErr,na.rm=T),name="Normalized Error Distribution")
+```
+
+We can see that the error is about 1% which is suitable for us. For a better understanding, Let's plot the actual prices and predicted ones.
+
+```{r}
+highchart() %>% 
+  hc_add_series_scatter(x=Test$Price,y=Test$Predict,name="Actual Prices") %>%
+  hc_add_series_scatter(x=Test$Price,y=Test$Price,name="Predicted Price") %>% 
+  hc_title(text="Car Prices vs. Model Estimated Prices") %>% 
+  hc_yAxis(title = list(text = "Predicted Price")) %>% 
+  hc_xAxis(title = list(text = "Actual Price"))
+```
+
+## 10. Cross Validation
+
+We'll use a 5-fold cross validation method to findout how accurate our model is. Using CVlm in the DAAG Library we have:
+
+```{r,eval }
+carval <- car[ , !(names(car) %in% Redun)]
+
+#CVlm(data = carval, form.lm = formula(Price~.-Id), m = 5,
+ #            seed=435, dots = FALSE, plotit = c("Observed","Residual"),
+ #            main="cross-validation predicted values", legend.pos="topleft", printit = F)
+
+```
+
+_Due to some unknown error the plot isn't shown in the html format. it can be found in the HW folder._
+
+The Results show a 45 degree line, passing through (0,0), which agrees with the that we have predicted the test data correclty. Let's calculate the SSE and the Mean Normalized Squared Error for each of these iterations.
+
+```{r}
+require(caret)
+flds <- createFolds(car$Id, k = 5, list = TRUE, returnTrain = FALSE)
+SSE=integer()
+MeanNormEr=integer()
+
+for(i in 1:5){
+  index=unlist(flds[i])
+  train <- carval[ -index,]
+  test <- carval[index,]
+  
+  valfit <- lm(Price~.-Id,train)
+
+#predicting Price for the Test Data
+  Predict <- predict(valfit,newdata = test)
+
+#Calculating Normalized Error
+  MeanP=round(mean(test$Price))
+  test[,"Predict"]<-Predict
+  test %>% mutate(SE=(Predict-Price)^2,NormErr=(Predict-Price)^2/Price^2)->test
+
+  #calculating 2 types of error
+  SSE[i]=sum(test$SE,na.rm=T)
+  MeanNormEr[i] = round(mean(test$NormErr,na.rm=T),3)
+
+}
+names(SSE)<-c("1st Iteration SSE","2nd Iteration SSE","3rd Iteration SSE","4th Iteration SSE","5th Iteration SSE")
+names(MeanNormEr)<-c("1st Iteration NSE","2nd Iteration NSE","3rd Iteration NSE","4th Iteration NSE","5th Iteration NSE")
+
+SSE
+MeanNormEr
+
+```
+
+The vectors _SSE_ and _MeanNormEr_ show that we have predicted the test data everytime with less than 2% error with is satisfying. This indicates that our model works well for the data as well as predicting new variables.
+
+
+***
+***
