@@ -1,0 +1,414 @@
+---
+title: "HW4"
+author: "Parnian kassraie 93111185"
+date: "October 26, 2016"
+output: html_document
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=F, warning=F, error=F,fig.align = "center")
+```
+
+```{r}
+library(mosaic)
+library(mosaicData)
+library(ggplot2)
+library(highcharter)
+library(magrittr)
+library(dplyr)
+
+peste=read.csv("Data.csv")
+```
+
+
+## Pistachio Analysis
+
+### 1. Are Being In A Bad Shape And Not Being Smiley Correlated?
+
+we can create 2 series of data:
+
+  * Smile column of "Badly Shaped Pistachios" : $P(K|B=1)$  where K is the random variable for Pistachios Smile.
+  * Smile Column of "Well Shaped Pistachios" :  $P(K|B=0)$
+
+comparing the distribution of these, can show us whether the conditional distributions are similar or not. If $H_0$ is correct, it means that the variables are independant.
+
+We can do this by using a wilcoxon test, or a chisquared test. Both are implemented Below.
+
+```{r}
+#wilcoxon
+S1=filter(peste,bad.shekli==1)$naakhandan
+S2=filter(peste,bad.shekli==0)$naakhandan
+wilcox.test(S1,S2)
+# independent chisq.test
+
+tbl=table(peste$naakhandan,peste$bad.shekli)
+chisq.test(tbl)
+
+```
+
+The test results show that the mean of these two series are different, however, given the size of the dataset the p-value isn't small enough. Thus, we can't determine whether $H_0$ is correct or not.
+
+### 2.Seed Weight And Pistachios Shape
+
+```{r,eval=F}
+
+#Preparing Data
+#Some Samples have negative or huge seeds.
+peste %>% filter(vazne.maghz>0,vazne.maghz<2) -> peste
+
+# deriving the means to show on the plot
+mean1<-round(mean(filter(peste,bad.shekli==1)$vazne.maghz),2)
+mean0<-round(mean(filter(peste,bad.shekli==0)$vazne.maghz),2)
+
+
+ggplot(peste,aes(x=vazne.maghz,y=bad.shekli))+
+  geom_point(aes(color="Pistachios"),position="jitter")+
+  geom_vline(aes(xintercept =mean0 ,color="Khosh Shekl"),size=rel(1.5))+
+  geom_vline(aes(xintercept =mean1 ,color="Bad Shekl"),size=rel(1.5))+
+  scale_color_brewer(palette = "Paired")+
+  labs(x="Seed Weight",y="Bad-Shekli",title="Bad-Shekli vs. Seed Weight")
+
+highchart() %>% 
+  hc_add_series_boxplot(peste$vazne.maghz,by=peste$bad.shekli) %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_title(text="Comparing the seed Weight Distribution") %>% 
+  hc_xAxis(text="Bad-Shekli") %>% 
+  hc_yAxis(text="Seed Weight")
+
+```
+
+We can make these observations.
+  * There are far more goodlooking pistachios that bad looking ones.
+  * the weight distribution amongst these two types of pistachios are certainly not the same.
+  * goodlooking pistachios might be heavier than bad looking ones. (Compare the ablines in the first plot.)
+  
+In the next question, we will investigate these guesses.
+
+
+### 3. Using Parametric And None-parametric Tests to Investigate The Difference Between The Shape Size
+
+Here We want to find out about the relation between _X=: seed weight_ and _Y=: how well shaped the pistachio is_.
+X is a continues variable and its marginal distribution can be assumed to be normal, however, Y is a discrete ordinal variables. having this in mind, and the fact that their variance isn't necessarily equal, we'll select two test to investigate our hypothesis which is stated in a more clear manner below:
+
+  * The seed of the good-looking pistachios is bigger/heavier than the seeds of the bad-looking ones.
+    
+#### Parametric test:
+
+We want to compare the means of two samples, weights of good-looking pistachios and WEIGHTS of bad-looking ones. ]n each set, the distribution of sample mean can be assumed normal, since weight is a continuous variable measure a lot of times. so, We can use an upaired t-test.
+
+```{r}
+t.test(peste$vazne.maghz,peste$bad.shekli,"greater")
+
+```
+
+this shows that $H_0$ isn't correct. $H_1$ says that the distributions are different and the mean seed weight of good-looking pistachios is _bigger_ than bad-looking ones.Thus, our primary assumption was _false_ .
+
+#### Non-parametric test:
+
+we can use the wilcoxon test which is the equivalent of the ttest above, it just assumes that the seed weight sample distribution might not be normal.
+
+```{r}
+wilcox.test(peste$vazne.maghz,peste$bad.shekli,"greater")
+```
+
+Note that by adding the "greater" argument, we're setting $H_1$ to be: $W_G<W_B$ and so, we achived the same results by using the non-parametric test as well.
+
+this plot compares the distributions:
+
+```{r,eval=F}
+highchart() %>% 
+  hc_add_series_boxplot(peste$vazne.maghz,by=peste$bad.shekli) %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_title(text="Comparision of seed weight between good and bad looking pistachios")
+
+```
+
+### 4. Homogeneous Weight Distribution Among Sacks of Pistachio
+
+```{r,eval=T}
+#Cleaning the data
+peste %>% filter(vazne.peste>0,vazne.peste<4) ->peste
+
+#Plotting the first permutation
+highchart() %>% 
+  hc_add_series_boxplot(peste$vazne.peste,by=peste$nemoone,name="First Permutation Weight distribution") %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_title(text="Weight distribution comparision amongst different sacks Weight distibution") %>% 
+  hc_yAxis(title=list(text="weight"))
+
+#Creating the second permutation
+nemoone2=shuffle(peste$nemoone)
+peste[,"nemoone2"]=nemoone2
+
+#plotting the second permutation
+highchart() %>% 
+  hc_add_series_boxplot(peste$vazne.peste,by=peste$nemoone2,name="Second Permutation") %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_title(text="Weight distribution comparision amongst different sacks") %>% 
+  hc_xAxis(title=list(text="sack number")) %>% 
+  hc_yAxis(title=list(text="weight"))
+
+peste %>% group_by(nemoone,nemoone2) %>% summarize(vazn=round(mean(vazne.peste),4))->peste1
+
+#plotting both in the same plot
+highchart() %>% 
+  hc_add_series_boxplot(peste1$vazn,name="Second Permutation") %>% 
+  hc_add_series_boxplot(peste1$vazn,name="First Permutation") %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_title(text="Weight distribution comparision amongst different sacks") %>% 
+  hc_xAxis(title=list(text="sack number")) %>% 
+  hc_yAxis(title=list(text="weight"))
+
+```
+
+Hypothesis Test:
+
+It seems that the weight distribution within and amongst the sacks might not be homogeneous. Meaning that according to the samples we have from each of the sacks, one sack could be statistically "heavier" than the others, 
+
+facing this problem, we can ask two type of questions.
+
+  * Are the mean weights of sacks statistically different?
+  * How much the mean weights are different? (numerically)
+  
+To answer these question, we can design a Hypothesis Test like below:
+
+$$H_0 : \mu_1=\mu_2=...=\mu_n$$
+
+$$H_1 : \forall \quad i,j \in [1,n] \quad \mu_i\neq\mu_j$$
+
+by using ANOVA method, we can asnwer both of our questions with the results of this test.
+
+### 5. Investigating The Homogeneity
+
+We'll be implementing the anova method once manually and once by using the R function _aov()_ .
+
+#### 5.1 Manual Implementaion
+
+A) Variance of sample means (Inter-Sacks Variance)
+  
+We have to calculate the mean weight of each sack and then the variance of these means.
+  
+  
+```{r}
+# Creating a new dataframe grouped on "nemoone" with the mean weights of each nemoone.
+peste %>% group_by(nemoone) %>% summarise(wm=round(mean(vazne.peste),3))%>% select(box=nemoone,wm)->SampMean
+
+#the mean of sample means
+Mean=round(mean(SampMean$wm),3)
+
+#calculating the variance of sample means, manually!
+SampMean %>% mutate(dif=wm-Mean) %>% mutate(absdif=dif^2) ->SampMean
+Sx2=round(sum(SampMean$absdif)/(length(levels(factor(SampMean$box)))),4)
+
+#note that:  length(levels(factor(SampMean$box))) = r-1   where r is the number of sacks
+```
+
+So the variance amongst the boxes/sacks is:
+
+$$s_x^2=0.0018$$
+
+
+  B) Pooled Variance (Intra-Sack Variance)
+  
+   The Weight Variance in each sack is in the data frame _SampVar_ with its' corresponding sack number.
+  
+```{r}
+peste %>% group_by(nemoone) %>% summarise(variance=round(var(vazne.peste),4))->SampVar
+knitr::kable(SampVar[1:5,])
+
+```
+
+  
+  Now we take an average over these sample variances to derive the pooled variance. we're gonna use the pooled variance to later on calcualte value of F.
+  
+
+```{r}
+Sp2=round(mean(SampVar$variance),4)
+```
+  
+  Thus, The pooled variance is:
+
+$$s_p^2=0.0426$$
+
+  C) Calculating F
+  
+$$F=(ns_x^2)/s_p^2$$
+
+  where n is the number of samples per sack/nemoone.
+  
+```{r}
+n=max(peste$shomare)
+
+F=n*Sx2/Sp2
+```
+
+  now given the degrees of freedom within samples ($90*109$) and within sacks($90-1$), using the F distribution we can findout whether F is in the left 95% of the distribution($H_0$ being correct) or not. For these values, the critical point of 95% is arount $F(0.95)=1.35$. 
+  
+  **Thus $H_0$ is wrong and the pistachios are not homogenously distributed amongst the bags**.
+  
+
+#### 5.2 ANOVA Implementation
+
+This time, we will use the aov() function.
+
+```{r}
+fit<-aov(peste$vazne.peste~factor(peste$nemoone))
+summary(fit)
+```
+
+  We get the same results. Now let's wrap up the meaning of these results.
+  
+  
+### 6. Smiling vs. Size
+
+First we prepare our data by adding a column of a nominal variable, _Size_. If a pistachio's weight is in the upper or lower quantile of the distribution, then it's considered _Big/Small_, aslo the two quantiles in the middle are _Medium_ sized.
+
+```{r}
+
+q=quantile(peste$vazne.peste)
+peste %>% mutate(Size=ifelse(vazne.peste<q[2]|vazne.peste>q[4],"Big/Small","Medium"))->peste
+
+```
+
+We have two random variables, Size and naakhandan. the goal is to findout whether the distribution of naankhandan pistachios differs with size.
+
+In each of the bags, we'll count the number of naakhandan pistachios for both Medium and Big/Small types.
+
+assuming that each bag represents one sample, then we'll have 90 samples of number of nakhandan pistachios for both of the sizes explained before.
+
+being naakhandan or not for each pistachio is a trial, having 110 pistachios in each bag, makes the number of naakhandans a multinomial variable. Since the number of pestachios per bags are large, we can assume that this number has a normal distribution. Thus, we'll be able to take a t.test on it.
+
+$H_0: \quad \mu_1>\mu_2 \quad$: This means that the Small/Big pistachios are more likely to be naakhandan.
+$H_0: \quad \mu_1<\mu_2 \quad$: This means that the Small/Big pistachios are more likely to be naakhandan.
+
+```{r}
+peste %>% group_by(Size,nemoone) %>% summarize(Number=sum(naakhandan))->Test
+t.test(Test$Number~Test$Size,"greater")
+```
+
+The p-value is high, so we can't determine whether $H_0$ is correct or not. Let's take a look at the boxplot:
+
+```{r}
+highchart() %>% 
+  hc_add_series_boxplot(Test$Number,
+                        by=Test$Size,name="Nakhandan Pistachios") %>% 
+  hc_title(text="Medium vs Small/Large Sized pistachios smile comparission") %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_xAxis(title=list(text="Bags")) %>% 
+  hc_yAxis(title=list(text="Number of the not smiling pistachios per nemoone"))
+```
+
+we can see that the variance of these sets are somehow different. let's see if we can proove anything using an anova test with the following hypothesis:
+
+$H_0: \quad \mu_1=\mu_2 \quad$: This means that the likelihood of being naakhandan does not differ acording to size.
+$H_0: \quad \mu_1\neq\mu_2 \quad$: This means that the likelihood of being naakhandan differs acording to size.
+
+```{r}
+fit<-aov(Test$Number~Test$Size)
+summary(fit)
+```
+
+Again, the F is not significantly big and the Probability of it's values isn't small enough for aus to able to conclude anything.
+
+However, if we change our method of grouping to the following, we'll see a noticable change.
+
+A big pistachio is the one with the big seed, so we call the upper half of the seed weight distribution _Big_ and the lower half _Small_. By applying the same functions, we see that this time, $H_0$ is not correct and the small pistachios are more likely to be naakhandan!
+
+```{r}
+q=quantile(peste$vazne.maghz)
+peste %>% mutate(Size2=ifelse(vazne.maghz>q[3],"Big","Small"))->peste
+
+peste %>% group_by(Size2,nemoone) %>% summarize(Number=sum(naakhandan))->Test
+
+highchart() %>% 
+  hc_add_series_boxplot(Test$Number,
+                        by=Test$Size2,name="Nakhandan Pistachios") %>% 
+  hc_title(text="Medium vs Small/Large Sized pistachios smile comparission") %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_xAxis(title=list(text="Bags")) %>% 
+  hc_yAxis(title=list(text="Number of the not smiling pistachios per nemoone"))
+
+t.test(Test$Number~Test$Size2,"greater")
+
+```
+
+
+### 7.1 Shell Weight And Core weight: Does It Take A Bigger Shell TO Cover A Bigger Seed? (OstadPasand1 !)
+
+A pistachio's seed is big if it's in the upper half of _vazne.maghz_ distribution, and is small otherwise. We'll compare the shell weight distribution for big/small seeds.
+
+```{r}
+qu=quantile(peste$vazne.maghz)
+peste %>% mutate(SeedSize=(ifelse(vazne.maghz>qu[3],"Large","Small")),
+                 ShellWeight=round(vazne.peste-vazne.maghz,2)) %>% 
+  filter(ShellWeight>0, ShellWeight<0.5)-> peste2
+
+highchart() %>% 
+  hc_add_series_density(density(filter(peste2,SeedSize=="Small")$ShellWeight),name="Small Seed") %>% 
+  hc_add_series_density(density(filter(peste2,SeedSize=="Large")$ShellWeight),name="Large Seed") %>% 
+  hc_title(text="Shell Weight distribution comparision according to seed size") %>% 
+  hc_add_theme(hc_theme_google())
+
+```
+
+We'll take a t.test to find out if our Zero hypothesis is ture or not.
+
+$$H_0: \quad \mu_1=\mu2$$
+$$H_1: \quad \mu_1\neq\mu_2$$
+
+where $\mu_i$ is the mean shell weight for group i.
+
+```{r}
+t.test(peste2$ShellWeight~peste2$SeedSize)
+```
+
+Since p-value is big, our data isn't sufficient to approve or disapprove the null hypothesis.
+
+### 7.2 A More Precise investigation on Not-Smiling and Pistachio's weight? (OstadPasand2 !)
+
+In part 2, we concluded that the pistachios size, might have nothing to with not-smiling, since the p-value was high. Now let's take the _Seed Weight_ into account. We expect big pistachios with small seeds to have a bigger shell, and having a big shell, might mean that the shell has covered the seed completely, which can be correlated with being naakhandan.
+
+we have 2 explanatory variables, Seed Size and Pistachio Size, each taking 2 possible values. Thus, We have 4 types of pistachios. let's findout whether the distribution of naakhandan pistachios is homogeneous amongst these types.
+
+There are 90 numerators, each containing 110 samples. and each of these samples are one of the four types below:
+  
+  *Large/Small Pistachio / Medium Seed
+  *Large/Small Pistachio / Large/Small Seed
+  *Medium Pistachio / Medium Seed
+  *Medium Pistachio / Large/Small Seed
+  
+This condition calls for a 2-way anova test. 
+
+```{r}
+qu=quantile(peste$vazne.maghz)
+peste %>% mutate(Sizem=ifelse(vazne.maghz<qu[2]|vazne.maghz>qu[4],"Big/Small","Medium"))%>% 
+  group_by(Size,Sizem,nemoone) %>% summarise(num=sum(naakhandan)) ->peste1
+fit1<-aov(peste1$num~peste1$Size*peste1$Sizem)
+summary(fit1)
+```
+
+as we can see, when both pistachio and seed size are taken into account, F is significanty big and thus, $H_0$ is wrong.
+$H_0$ was the hypothesis which stated that all four types had the same disribution of nakhandaan pistachios.
+
+Let's take a look at the distribution:
+
+```{r}
+peste1 %>% mutate(Type=paste(Size,Sizem))->peste1
+highchart() %>%
+  hc_add_series_boxplot(peste1$num,by=peste1$Type,name="Number of Naakhandan Samples") %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_title(text="Numbe of naakhandan pistachios according to pistachio and it's seed size")
+```
+
+It can be seen that if the shell (difference of pistachio and it's seed) is certainly Small/Big, which happens when of the variables is Big/Small and the other is medium, then no nakhandan sample occures.
+
+
+
+
+
+
+
+
+
+***
