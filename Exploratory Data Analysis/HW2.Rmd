@@ -1,0 +1,738 @@
+---
+title: 'Second HomeWork: Soccer Data'
+author: "Parnian Kassraie - 93111185"
+date: '`r Sys.time()`'
+output: html_document
+always_allow_html: yes
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F, error = F,fig.width = 16,fig.height = 8)
+```
+
+<div align="center">
+<img  src="images/adel.jpg"  align = 'center'>
+</div>
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(engsoccerdata)
+library(readr)
+library(magrittr)
+library(ggplot2)
+library(highcharter)
+# england data
+data("england")
+
+# iran data
+team = read_rds("data/all_players_data.rds") # team member
+fault = read_rds("data/match_fault.rds")     # fault records
+game = read_rds("data/match_game.rds")       # game results
+goal = read_rds("data/match_goal.rds")       # goal records
+change = read_rds("data/match_player.rds")   # change records
+change %<>% filter(!is.na(change_time))
+```
+
+***
+
+## Activities
+
+***
+
+### 1. Order teams by number of fans
+
+Let's assume that we have the crowd coloumn for every game. assuming that at each game, half the stadium's crowds are fans of the visitor and the other half are the fans of the home team, first we separate the data frame into 2 smaller ones (according to home and away coloumn). then we bind the two data frames by rows into a single one, with a "Team" coloumn instead of home or away coloumn. grouping by the team names (the data is regardless of home or away) we can find out the fan number of each team.
+
+```{r}
+#Removing NA rows:
+game1<-filter(game,is.na(crowd)==F)
+
+#Selecting by home teams:
+home_pop = data.frame(game1$home,game1$crowd)
+
+#Renaming The coloumn names to more general terms
+home_pop<-rename(home_pop , team=game1.home , Crowd=game1.crowd)
+
+#Select by visitor teams:
+away_pop = data.frame(game1$away,game1$crowd)
+
+#Renaming the coloumn names to be similar with the previous one                 
+away_pop<-rename(away_pop , team=game1.away , Crowd=game1.crowd)
+
+#Binding two data frames by rows:
+pop<-bind_rows(home_pop,away_pop)
+
+#now that teams, whether visitor or home, are in the same coloumn, we group the dataframe by team names:
+pop %>% group_by(team) %>% summarise(Crowd=0.5*mean(x=Crowd,na.rm=T)) %>% arrange(desc(Crowd))->pop
+
+#ploting the result:
+ggplot(pop,aes(x=pop$team,y=pop$Crowd,fill=pop$team))+geom_bar(stat="identity")+
+  labs(x="Team Names",y="Stadium Crowd",title="Popularity Based on Stadium's Crowd")+
+  scale_fill_discrete(names("Team Names"))+
+  theme(axis.text.x  = element_text(angle=90, vjust=0.5, hjust=0),legend.position="none")
+
+```
+
+__The Most Famouse Teams are:__
+
+```{r}
+knitr::kable(pop[1:20,])
+```
+
+
+### 2. Check if referee has effect on goals per game
+
+By plotting the Average Number of goals per game per Referee, we can gain some sense about how many goals each referee allows. But this doesn't suffice.
+
+```{r}
+#removing NA rows:
+game2<-filter(game,is.na(refrence)==F|refrence!="")
+
+game2 %>% group_by(refrence) %>% summarise(Goals=mean(x=home_score+away_score,na.rm=T))->game2
+
+#ploting the result:
+ggplot(game2,aes(x=game2$refrence,y=game2$Goals,fill=factor(game2$refrence)))+geom_bar(stat="identity")+
+  labs(x="Referee Names",y="Average Goals",title="Average Goals Vs Referee")+
+  scale_fill_discrete(names("Referee Names"))+
+  theme(axis.text.x  = element_text(angle=90, vjust=0.5, hjust=0),legend.position ="none")
+
+       
+```
+
+According to the plot above, referees sorted by the average number of goals are:
+
+```{r}
+game2 %>% arrange(desc(Goals))->game2
+knitr::kable(game2[1:5,])
+```
+
+Now, lets derive the goal number probability distribution for each referee.
+
+```{r}
+#Removing the NA laues
+game2<-filter(game,!is.na(refrence)|refrence!="")
+
+
+#Adding home and away scores
+game2=data.frame(game2$refrence,game2$home_score+game2$away_score)
+names(game2)=c("referee","goals")
+
+#Grouping by referee and number of goals in a single game
+game2 %>% group_by(referee,goals) %>% summarise(Count=n())->game2
+
+#grouping by referee, finding out the total number of games they have judged
+game2 %>% group_by(referee) %>% summarise(TotalGames=sum(Count,na.rm=T))->game3
+
+#Merging these two data frames and deriving a distribution for each referee
+game2=merge(x=game2,y=game3,all.x = T)
+game2 %>% mutate(distrib=Count/TotalGames)->game2
+
+#ploting the result:
+ggplot(game2,aes(y=game2$referee,x=game2$goals))+geom_tile(aes(fill=game2$distrib))+
+  labs(y="Referee Names",x="Number of Goals per game",title="Distribution of Referee")+
+  scale_fill_gradient( low="white", high="red", name="Probability")
+
+```
+
+By Comparing the Probability distributions for each referee, we understand that whether a referee is likely to accept a specific number of goals in a game, in other words, now we know the exact $P_(G|R)$.
+ 
+ 
+### 3. Is there any relation between number of faults and lose?
+
+
+Let's Prepare the dataset first. Since we want to find the correlation between loosing and faults, we try to find out the relation between score difference and number of faults per team.
+_Note that in the final data frame prepared, there are two rows for all the games that aren't tied. One row for the winning team with the cards they have recieved and one for the loosing team_.
+
+```{r}
+
+fault %>% group_by(round,team,league,color) %>% summarise(cards=n())->faultdata
+
+#Selecting home teams and away teams separatly and then, binding the rows after renaming the selected columns.
+
+gamedata<-bind_rows((game %>% mutate(diff=home_score-away_score) %>% select(team=home,league,round,score=home_score,diff)),(game %>%  mutate(diff=away_score-home_score) %>% select(team=away,league,round,score=away_score,diff)))
+
+#This data frame contains each team's game score and number of cards.
+gamefault<-merge(gamedata,faultdata)
+
+
+knitr::kable(gamefault[1:10,])
+```
+
+Now, Let's plot the Number of _cards_ vs. _score difference_ averaged on all of the teams.
+
+```{r}
+
+ggplot(gamefault,aes(x=gamefault$cards,y=gamefault$diff,color=gamefault$color))+
+  geom_count(position = "jitter")+
+  scale_color_manual(values=c("indianred1","yellow"),name="Card Color")+
+  labs(y="Score Difference",x="Number of Cards per game",title="Counting Games")
+```
+
+It can be seen, that the losing teams have recieved more red cards than the winning teams. also, no team with 4 red cards has been able to win, which is consistant with the laws of football.  However, the number of yellow cards is somehow symmetric. Let's count the exact number.
+
+We can also do the same analysis for teams separatly to get some sense about the temper of their members under pressure! In the tile plot below, blue colors indicate loses.
+
+```{r}
+
+gamefault %>% group_by(team,cards) %>% summarise(diff=mean(diff))->gamefault1
+
+ggplot(gamefault1,aes(y=gamefault1$team,x=gamefault1$cards))+
+  geom_tile(aes(fill=gamefault1$diff))+
+  scale_fill_gradient2( low="royalblue1", high="indianred1", name="Mean Score Difference")+
+  labs(y="Team Names",x="Number of Cards Recieved Per Game",title="Distribution of Scores")
+```
+
+By tracing the line for each team we see that Surprsingly, most teams perfom better under pressure! However, there are teams that win or loose whether they have recieved various cards or not.
+
+
+### 4. Find the relation between the ten last ten game and the first ten game
+
+We expect the last ten games to have more tension than the first ten games. Let's determine some factors for evaluating these sentences first.
+
+* Games Tension:
+
+    + Goals
+    + Faults
+    + Stadium Crowd
+
+Now we extract the desired games from the overall data. Since each round represents a week in the leagues, I believe that comparing the 8 first games and the 8 last games can be more meaningful than the 10 games. I'll be using number 8 instead of 10.
+
+#### 4.1. Goal Distribution:
+
+We can see that the last games are more instense, since the peaks of the goal number distribution are more severe.
+
+```{r}
+
+game %>% filter(round %in% c("1","30"))->flgame
+flgame <- rbind(select(flgame,league,round, team=home, team2=away, goal=home_score, goal2=away_score,crowd),
+               select(flgame,league,round,  team=away, team2=home, goal2=home_score, goal=away_score,crowd))
+flgame <- merge(flgame,fault,by=c("team","league","round"))
+
+ggplot(flgame, aes(goal, colour = round)) +geom_density(size=1.5)+scale_color_brewer(palette = "Pastel1")+
+  ggtitle("Goal NUmber Distribution")
+```
+
+#### 4.2.Crowd Distribution
+
+As suspected, the biggest crowd (100000 person) belongs to the games from the last round and the histogram of the first round has a great peak at lower values. However, there are many round 30 games with a few fans in the stadium.
+
+```{r}
+ggplot(flgame, aes(crowd, fill = round)) +geom_histogram(position="dodge")+scale_fill_brewer(palette = "Pastel1")+
+  ggtitle("Crowd Histogram")+xlim(0,105000)
+```
+
+#### 4.3.Fault Distribution
+
+Again, as anticipated, the final games are more intense, since their peaks are higher at bigger values.
+```{r}
+flgame %>% group_by(team,league,round) %>% summarize(faults=n())->flfault
+ggplot(flfault, aes(faults, colour = round)) +geom_density(size=1.5)+scale_color_brewer(palette = "Pastel1")+
+  ggtitle("Fault Per Game Distribution")
+```
+
+#### 4.4. General Tension Distribution
+
+Adding all the factors above we'll have:
+
+The bigger,the brighter and the higher the dots, the more intense the game is.
+```{r}
+
+flgame2<-merge(flgame,flfault)
+flgame2 %>% group_by(round,league) %>%  summarise(faults=round(mean(faults),2),goal=round(mean(goal),2),crowd=round(mean(crowd,na.rm=T),2))->flgame2
+
+ggplot(flgame2,aes(x=round,y=goal,color=faults,size=crowd))+geom_count()+
+  labs(x="Round",y="Goal Per Game",title="Game Tension")
+```
+
+
+For better visualization, We can define a normalized parameter, T, which is a linear combination of all the variables above, being normalized and dimension-less.
+
+$$ T=\alpha G + \omega F + \gamma C$$
+
+This way, we would be able to show the data with a 2-D geom line plot.
+
+
+### 5. Does false pride really damage teams?
+
+
+#### Defining Pride:
+ - Each team starts a league with zero levels of pride, assuming that the results of the previous league are not effective anymore. This is not a accurate assumption.
+ - Winning a game, _adds n levels_ to the team's pride, where n is the difference of goals scored in the game. Similarly, Loosing a game will _reduce the pride level_ and a tie won't change the pride level.
+ - We will be creating the pride column for the 4 first teams of the previous league, as well as one of the last teams. See how winning effects each of the teams attitudes in the last 5 leagues. The Teams are:
+    * Esteghlal TEH
+    * Teraktor TBZ
+    * Esteghlal KHU
+    * Perspolis TEH
+    * Malavan ANZ
+    
+#### Preparing the Dataset
+
+```{r}
+#Selecting Last 5 leagues
+game %>% filter(league %in% c("10","11","12","13","14","15"))->game2
+
+#Separating Home and Away teams:
+game2 <- rbind(select(game2,league,round, team1=home, team2=away, goal1=home_score, goal2=away_score),
+               select(game2,league,round,  team1=away, team2=home, goal2=home_score, goal1=away_score))
+game2 <- mutate(game2,diff=goal1-goal2)
+
+
+#Calculating False Pride for Esteghlal KHU:
+game2 %>%  filter(team1=="Esteghlal KHU")->Estkhu
+
+Estkhu %>% filter(league==13) %>% mutate(pride=cumsum(diff))->Estkhu1
+Estkhu %>% filter(league==14) %>% mutate(pride=cumsum(diff))->Estkhu2
+Estkhu %>% filter(league==15) %>% mutate(pride=cumsum(diff))->Estkhu3
+
+Estkhu <-bind_rows(Estkhu1,Estkhu2,Estkhu3)
+
+
+#Calculating False Pride for Esteghlal TEH:
+game2 %>%  filter(team1=="Esteghlal TEH")->Estteh
+
+Estteh %>% filter(league==15) %>% mutate(pride=cumsum(diff))->Estteh5
+Estteh %>% filter(league==11) %>% mutate(pride=cumsum(diff))->Estteh1
+Estteh %>% filter(league==12) %>% mutate(pride=cumsum(diff))->Estteh2
+Estteh %>% filter(league==13) %>% mutate(pride=cumsum(diff))->Estteh3
+Estteh %>% filter(league==14) %>% mutate(pride=cumsum(diff))->Estteh4
+
+Estteh <-bind_rows(Estteh1,Estteh2,Estteh3,Estteh4,Estteh5)
+
+
+#Calculating False Pride for Perspolis TEH:
+game2 %>%  filter(team1=="Perspolis TEH")->Persteh
+
+Persteh %>% filter(league==15) %>% mutate(pride=cumsum(diff))->Persteh5
+Persteh %>% filter(league==11) %>% mutate(pride=cumsum(diff))->Persteh1
+Persteh %>% filter(league==12) %>% mutate(pride=cumsum(diff))->Persteh2
+Persteh %>% filter(league==13) %>% mutate(pride=cumsum(diff))->Persteh3
+Persteh %>% filter(league==14) %>% mutate(pride=cumsum(diff))->Persteh4
+
+Persteh <-bind_rows(Persteh1,Persteh2,Persteh3,Persteh4,Persteh5)
+
+
+#Calculating False Pride for Teraktor TBZ:
+game2 %>%  filter(team1=="Teraktor TBZ")->Tertbz
+
+Tertbz %>% filter(league==15) %>% mutate(pride=cumsum(diff))->Tertbz5
+Tertbz %>% filter(league==11) %>% mutate(pride=cumsum(diff))->Tertbz1
+Tertbz %>% filter(league==12) %>% mutate(pride=cumsum(diff))->Tertbz2
+Tertbz %>% filter(league==13) %>% mutate(pride=cumsum(diff))->Tertbz3
+Tertbz %>% filter(league==14) %>% mutate(pride=cumsum(diff))->Tertbz4
+
+Tertbz <-bind_rows(Tertbz1,Tertbz2,Tertbz3,Tertbz4,Tertbz5)
+
+#Calculating False Pride for Malavan ANZ:
+game2 %>%  filter(team1=="Malavan ANZ")->Malanz
+
+Malanz %>% filter(league==15) %>% mutate(pride=cumsum(diff))->Malanz5
+Malanz %>% filter(league==11) %>% mutate(pride=cumsum(diff))->Malanz1
+Malanz %>% filter(league==12) %>% mutate(pride=cumsum(diff))->Malanz2
+Malanz %>% filter(league==13) %>% mutate(pride=cumsum(diff))->Malanz3
+Malanz %>% filter(league==14) %>% mutate(pride=cumsum(diff))->Malanz4
+
+Malanz <-bind_rows(Malanz1,Malanz2,Malanz3,Malanz4,Malanz5)
+
+
+#Merging all 5 teams:
+game2 <- bind_rows(Malanz,Persteh,Estkhu,Estteh,Tertbz)
+game2 <- mutate(game2, result= ifelse(diff>0, "1", ifelse(diff<0, "-1", "0")))
+
+```
+
+Now, _game2_ contains all the games of the last 5 leagues with the corresponding pride. Let's plot it.
+
+```{r}
+ggplot(game2,aes(x=game2$pride,y=game2$result))+
+  geom_count(aes(color=game2$team1),position = "jitter")+
+  labs(x="Pride Level",y="Game Result",title="False Pride Detection")+
+  scale_color_hue(h=c(180,360),name="Teams")
+```
+
+#### Interpretation:
+A false pride occures when a team isn't powerful(thus, looses) but feels some winning pride, i.e. the 4th quarter of the plot. It can be seen, that usually, teams win, when they're proud. Also, there is a significant difference between the top teams and Malavan ANZ/Esteghlal KHU. The champions are often pride and they take this from being prepared and skillful all the time, thus, one single win or loose doesn't effect their efficency. However, the weaker teams don't have this self-confidence and are easily affected by the result of their previous games. This can be seen in the Plot below:
+
+```{r}
+game2 %>% group_by(team1,result) %>% summarise(avgpride=mean(pride))->Fpride
+
+ggplot(Fpride,aes(y=Fpride$avgpride,fill=Fpride$result,x=Fpride$team1))+
+  geom_bar(stat="identity",position = "dodge")+
+  scale_fill_brewer(palette = "Pastel1",name="Games Result")+
+  labs(x="Teams",y="Pride Level",title="Pride Comparision")+
+  theme(axis.text.x  = element_text(angle=90, vjust=0.5, hjust=0))
+```
+
+
+
+### 6. Should we buy foreign players?
+
+First, we will compare the average number of goals players have scored in the life, by nationality.
+```{r}
+
+team$Name<-paste(team$Firstname,team$Lastname)
+team %>% select(player=Name, league,team=Team,nationality=Nationality)->team1
+goalteam<-merge(team1,goal,by = c("team","league","player"))
+
+goalteam %>% group_by(nationality) %>% summarise(countG=n()) ->natgoal
+team1 %>% group_by(nationality) %>% summarise(countP=n())->natteam
+natgoal<-merge(natgoal,natteam)
+natgoal %>% mutate(avg=countG/countP) %>% arrange(desc(avg))->natgoal
+ggplot(natgoal,aes(x=nationality,y=avg,fill=nationality))+
+  geom_bar(stat="identity")+scale_fill_hue(h=c(100,190))+
+  labs(x="Nationality",y="Average Number of goals",title="Goal per Nationality")+
+  theme(axis.text.x  = element_text(angle=90, vjust=0.5, hjust=0),legend.position="none")
+```
+
+It can be seen that players from seangal, honduras and libya are much better goalers. It's either because they're cheap and iranian teams can afford to buy better players from these nationalities, or because they're actually better than others genetically! 
+
+Comparing teams, by their ranking and number of foreign players might also give us some insight. Let's use the rankings from the 15th league. (I'll be using the data from the next part of the assignment)
+
+```{r}
+ranks = c("Esteghlal KHU","Perspolis TEH","Teraktor TBZ","Esteghlal TEH","Naft TEH","Foolad KHU",
+          "Saipa ALB", "Zobahan ESF","Saba QOM","Sepahan ESF","Gostaresh TBZ","Padideh MSH","SiahJamegan MSH",
+          "Malavan ANZ","Rahahan TEH","Esteghlal AHV")
+#number of foreign players
+team1 %>% group_by(nationality,team) %>% summarise(national=sum(nationality=="Iran"),foreign=sum(nationality!="Iran")) -> numnat
+team1 %>% group_by(team) %>% summarise(c=n())->teamnum
+numnat<-merge(numnat,teamnum)
+numnat %>% mutate(avgnat=round(national/c,2),avgfor=round(foreign/c,2)) %>% 
+  group_by(team) %>% summarise(avgnat=sum(avgnat),avgfor=sum(avgfor)) %>% 
+  gather(nationality,percentage,2:3) %>% filter(team %in% ranks)->numnat
+
+#sorting
+numnat$team  = factor(numnat$team , levels =ranks)
+
+#plotting
+ggplot(numnat,aes(x=team,y=percentage,fill=nationality))+geom_bar(stat="identity",position="dodge")+scale_fill_brewer(palette="Pastel1")+
+  labs(x="Teams",y="Percentage",title="Nationality distribution per team")+
+  theme(axis.text.x  = element_text(angle=90, vjust=0.5, hjust=0),legend.position="none")
+```
+
+We can see that the high ranked teams, contain more foreign player in general, compared to the lower ranked ones. This can be just because the famous teams are more wealthy, but it can also mean that buying foreign players is a good choice. However, the country they come from matters.
+
+
+### 7. Plot the team's position in the table over every weeks of the last season
+
+```{r}
+
+#Creating a new dataframe for storing the rankings for each round.
+#This dataframe has only one column, teams.
+#At each iteration, a new column will be added, including the corresponding rankings for each team in that week.
+
+lastgame = filter(game,league==15)
+Teams=as.character(levels(factor(lastgame$home)))
+Rankings<-data.frame(Teams)
+
+
+for (i in 1:30) {
+
+
+#Separating Last season, league 15.
+lastgame = filter(game,league==15)
+
+#extracting first i rounds
+lastgame = filter(lastgame,round<=i)
+
+#Keeping the useful columns and adding a column indicating the winner team
+lastgame %>%  select(home, away, score, home_score, away_score) %>%  mutate(diff=home_score-away_score) ->lastgame
+lastgame %>%  mutate(result = ifelse(diff>0, "H", ifelse(diff<0, "A", "T"))) -> lastgame
+
+#separating home team and away team into 2 new rows
+
+lastgame1 <- rbind(select(lastgame, team1=home, team2=away, goal1=home_score, goal2=away_score), select(lastgame, team1=away, team2=home, goal2=home_score, goal1=away_score))
+
+#Calculating the important parameters and finally, calculating each team's final point.
+lastgame1 %>% mutate(diff=goal1-goal2) %>% group_by(team1) %>% summarize(count=n(),sumgoal1=sum(goal1),sumgoal2=sum(goal2),sumdiff=sum(diff),Win=sum(diff>0),Tie=sum(diff==0),
+                                                                         Lose=sum(diff<0)) %>% mutate(Point=(3*Win+Tie))->lastgame1
+
+#Sorting the teams by point
+lastgame1=arrange(lastgame1,desc(Point))
+
+#creating the ranking chart for this round
+lastgame1 %>% mutate(ranking=rank(desc(Point),ties.method="first"))->lastgame1
+lastgame1 %>% select(team1,ranking) %>% rename(Teams=team1)->lastgame1
+
+#adding the new column to the Rankings dataframe
+Rankings=left_join(Rankings,lastgame1,by="Teams")
+}
+
+#Renaming the League columns:
+names(Rankings)=c("Teams","1","2","3","4","5","6","7","8","9","10",
+                  "11","12","13","14","15","16","17","18","19","20",
+                  "21","22","23","24","25","26","27","28","29","30")
+
+
+Rankings=gather(Rankings,"Round","Rank",2:31)
+
+ggplot()+geom_line(data = Rankings, aes(x=Round, y=Rank, group=Teams,colour = Teams),size=1.5)+
+  scale_colour_hue(h=c(360,180),l=70)
+
+```
+
+
+### 8. Try to find out some result about goals time
+
+#### Comparing the goal time in a significant game with a lot of pressure vs. a boring unimportant game
+
+Here, we cant to compare the histogram of goal time for 2 different set of games.
+    * All the games between Esteghlal & Perspolis (Both powerful teams)
+    * All the games between Teraktor & Malavan (One powerful and one weak)
+    * All the games between Malavan & Saba
+
+```{r}
+#Parsing the game df
+game3 <- rbind(select(game, league, round, date, team=home, team2=away, crowd),
+                  select(game, league, round, date, team=away, team2=home, crowd))
+game3$round=as.integer(game3$round)
+#fullgoal <- merge(game3,goal, by=c("league","team","round"))
+fullgoal<-inner_join(game3,goal,by=c("league","round","team"))
+
+
+#Est-Per games:
+fullgoal %>% filter(team %in% c("Esteghlal TEH","Perspolis TEH"), team2 %in% c("Esteghlal TEH","Perspolis TEH")) %>% 
+  select(league,round,date,team,crowd,goaltime,player)-> estper
+estper$team="ESTPER"
+#Ter-Mal games:
+fullgoal %>% filter(team %in% c("Teraktor TBZ","Malavan ANZ"), team2 %in% c("Teraktor TBZ","Malavan ANZ"))%>% 
+  select(league,round,date,team,crowd,goaltime,player)->termal
+termal$team="TERMAL"
+#Sab-Mal games:
+fullgoal %>% filter(team %in% c("Saba QOM","Malavan ANZ"), team2 %in% c("Saba QOM","Malavan ANZ")) %>% 
+  select(league,round,date,team,crowd,goaltime,player) -> sabmal
+sabmal$team="SABMAL"
+
+typegoal<-bind_rows(estper,termal,sabmal)
+
+ggplot(typegoal, aes(goaltime, colour = team)) +geom_density(size=1.5)+scale_color_brewer(palette = "Set1",labels=c("Esteghlal-Perspolis","Saba-Malavan","Teraktor-Malavan"))
+```
+
+It can be observed that the goal time increases as both teams become more skillful. In teraktor-malavan games there's a peak in the begining of the game indicating that every time, teraktor easilty scores at the beginning of the game. However, in perspolis-esteghlal games, since both teams are equal, its harder to goal and thus, most of the goals are scored in the end of the game. In saba-malavan, again, since both teams are equally weak, the distribution is rather flat compared to the other two distributions.
+
+#### Stadium crowd vs. First Goa's Time: Are the players motivated by their fans?
+
+Let's find out if the fans in the stadium can effect the confidence of their teams. Assuming that the fans' cheering would encourage the players of both teams, thus decreasing the first goal's time.
+
+```{r}
+fullgoal %>% filter(!is.na(crowd),game_result %in%c("0 - 1","1 - 0")) %>% group_by(crowd,team) %>% 
+  summarise(goaltime=round(mean(goaltime))) %>% 
+  mutate(Gtime=ifelse(goaltime<23,"Early 1st Halft",ifelse(goaltime<45, "Late 1st Half",ifelse(goaltime<68,"Early 2nd Half","Late 2nd Half"))))->goalcrowd
+
+ggplot(goalcrowd,aes(x=crowd,y=Gtime,color=Gtime))+geom_count(position="jitter",size=rel(4))+
+  theme(legend.position="none")+
+  scale_color_manual(values=c("darkolivegreen4","darkorange3","darkgoldenrod2","firebrick4"),
+                    labels=c("Early 1st Half","Late 1st Half","Early 2nd Half","Late 2nd Half"))
+
+```
+
+Comparing the number of dots in the scatter plot in terms of x axes, shows that no significant change has occured. Meaning that the stadium's crowd doesn't effect the result of the game that much. However, a great portion of the games with fewer fans, have late time goals. This could mean that the lack of fans can cause lack of motivation for players.
+
+#### When do various teams score their goal?
+
+```{r}
+ggplot(goalcrowd,aes(fill=Gtime,x=team))+geom_bar(position="dodge")+
+  theme(axis.text.x  = element_text(angle=90, vjust=0.5, hjust=0),legend.position="bottom")+
+  scale_fill_manual(values=c("darkolivegreen4","darkgoldenrod2","darkorange3","firebrick4"),
+                    labels=c("Early 1st Half","Late 1st Half","Early 2nd Half","Late 2nd Half"))
+```
+
+We see that most of the teams score in the beginning of the second half. The _2 fastest teams_ are _Perspolis and Teraktor_ and the _slowest_ teams are _Saba QOM and Saipa ALB_. we can conclude that the more powerful teams can score earlier in the game, since their often better than their opponent.
+
+### 9. Make a brief table for last season like below
+
+
+```{r}
+# Separating Last season, league 15.
+lastgame = filter(game,league==15)
+
+#Keeping the useful columns and adding a column indicating the winner team
+lastgame %>%  select(home, away, score, home_score, away_score) %>%  mutate(diff=home_score-away_score) ->lastgame
+lastgame %>%  mutate(result = ifelse(diff>0, "H", ifelse(diff<0, "A", "T"))) -> lastgame
+
+#Currently, we have one row per game. we desire one row per game per team. so, similar to the previous parts, we create home and away games and then, rename the column to a more general formal of team and opponent.
+
+lastgame1 <- rbind(select(lastgame, team1=home, team2=away, goal1=home_score, goal2=away_score), 
+                   select(lastgame, team1=away, team2=home, goal2=home_score, goal1=away_score))
+
+#Calculating the important parameters and finally, calculating each team's final point.
+lastgame1 %>% mutate(diff=goal1-goal2) %>% group_by(team1) %>% summarize(count=n(),sumgoal1=sum(goal1),sumgoal2=sum(goal2),sumdiff=sum(diff),Win=sum(diff>0),Tie=sum(diff==0),
+                                                                         Lose=sum(diff<0)) %>% mutate(Point=(3*Win+Tie))->lastgame1
+
+#Sorting the teams by point
+lastgame1=arrange(lastgame1,desc(Point))
+
+
+#sorting the league data, home column by rankings
+lastgame$home = factor(lastgame$home , levels =rev(lastgame1$team1))
+#sorting the league data, visitor column by reverse ranking. Because in the visualization, rows are in the reverse order of columns.
+
+lastgame$away = factor(lastgame$away , levels=lastgame1$team1)
+
+```
+
+So, now the game dataframe, for the last league is modified, such that the home column is ordered according to the final points of the teams. The away column is ordered descending according to the same thing. Now, let's plot it.
+
+```{r}
+ggplot(lastgame, aes(home, away, fill = factor(result))) + 
+  geom_tile(colour="aliceblue", size=1.5, stat="identity", height=1, width=1) + 
+  geom_text(data=lastgame, aes(home, away, label =score), color="black", size=rel(3)) +
+  coord_flip() +
+  xlab("") + scale_fill_manual(values=c("darkseagreen1","salmon","slategray3"),
+                               name="Winner",labels=c("Away","Home","Tie"))+
+  ylab("") +
+  theme(
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(), 
+        panel.background = element_rect(fill="aliceblue"),
+        plot.background = element_rect(fill="aliceblue"),
+        axis.text.x  = element_text(angle=90, vjust=0.5, hjust=0)        
+  ) 
+```
+
+
+### 10. Its your turn! (three idea)
+
+#### 10.1 alltime rankings
+
+we calculated the rankings of teams in a single league. now, let's calculate the final rankings of leagues.
+
+```{r}
+#Creating an empty matrix
+Teams=as.character(levels(factor(team$Team)))
+RankingLeague<-data.frame(Teams)
+
+for (j in 10:16){
+
+  # Separating Last season, league 15.
+lastgame = filter(game,league==j)
+
+#Keeping the useful columns and adding a column indicating the winner team
+lastgame %>%  select(home, away, score, home_score, away_score) %>%  mutate(diff=home_score-away_score) ->lastgame
+
+
+#Currently, we have one row per game. we desire one row per game per team. so, similar to the previous parts, we create home and away games and then, rename the column to a more general formal of team and opponent.
+
+lastgame1 <- rbind(select(lastgame, team1=home, team2=away, goal1=home_score, goal2=away_score), select(lastgame, team1=away, team2=home, goal2=home_score, goal1=away_score))
+
+#Calculating the important parameters and finally, calculating each team's final point.
+lastgame1 %>% mutate(diff=goal1-goal2) %>% group_by(team1) %>% summarize(count=n(),sumgoal1=sum(goal1,na.rm=T),sumgoal2=sum(goal2,na.rm=T),sumdiff=sum(diff,na.rm=T),Win=sum(diff>0),Tie=sum(diff==0),Lose=sum(diff<0)) %>% 
+  mutate(Point=(3*Win+Tie))->lastgame1
+
+#Sorting the teams by point
+lastgame1=arrange(lastgame1,desc(Point))
+lastgame1 %>% mutate(Ranking=rank(desc(Point),ties.method="first"))->lastgame1
+lastgame1 %>% select(Teams=team1,Ranking)->lastgame1
+
+RankingLeague=full_join(RankingLeague,lastgame1,by="Teams")
+
+}
+RankingLeague[is.na(RankingLeague)] <- 30
+names(RankingLeague)=c("Teams","10","11","12","13","14","15","16")
+
+
+RankingLeague=gather(RankingLeague,"League","Rank",2:8)
+
+ggplot()+geom_line(data = RankingLeague, aes(x=League, y=Rank, group=Teams,colour = Teams),size=1.5)+
+  scale_colour_hue(l=70,c=100)+theme(legend.position="bottom")
+
+```
+
+If a Premier League team looses really bad, its sent out to play in "Daste Aval" League, in this plot we can see the struggle of weak teams, between the last places of the Premier league and "Daste Aval" which is shown with rank 30.
+In addition, we can follow the work of more popular teams and how they've had good ranks in all the leagues. Let's take an average on team's rankings over leagues to find out who has been the best.
+
+```{r}
+RankingLeague %>% group_by(Teams) %>% summarize(rank=mean(Rank)) %>% arrange(rank) %>% 
+  mutate(Ranking=rank(rank,ties.method="first")) %>% arrange(Ranking)->ranksum
+knitr::kable(ranksum[1:10,])
+```
+
+#### 10.2 Finding Loyal Players
+
+In this part, We try to find faithful players. We define a loyal player as someone who hasn't changed their team in the past 10 leagues. To do so, we draw a time series of teams vs. leagues, with each line representing a single player.
+
+```{r}
+
+team1 %>% filter(!is.na(team),!is.na(player),!is.na(league))->team1
+ggplot()+geom_line(data = team1, aes(x=league, y=team, group=player,colour = player))+ scale_colour_hue(c=100)+theme(legend.position="none")
+
+```
+
+Alright, Apparently our players aren't loyal at all! Let's narrow down our search for loyalty. We're gonna search only on players of Esteghlal, Perspolis.
+
+```{r}
+team1 %>% filter(team %in% c("Esteghlal TEH","Perspolis TEH"))->selectedplayers
+
+team1 %>% filter(player %in% selectedplayers$player) %>% 
+  mutate(HomeTeam=ifelse(team=="Esteghlal TEH","Esteghlal TEH",ifelse(team=="Perspolis TEH", "Perspolis TEH","")))-> team2
+
+team2 %>% group_by(player) %>% summarise(P_count=sum(HomeTeam=="Perspolis TEH"),E_count=sum(HomeTeam=="Esteghlal TEH")) %>% mutate(Home=ifelse(P_count==0, "Esteghlal",ifelse(E_count==0, "Perspolis","Traitor")))->player
+
+team2<-merge(team2,player)
+ggplot()+geom_line(data = team2, aes(x=league, y=team, group=player,colour = Home,position="jitter"),size=1)+
+  scale_colour_manual(values=c("royalblue1","indianred1","black"))+
+  theme_bw()+ theme(panel.border=element_blank())
+```
+
+Red lines indicate the players who have played for perspolis and never for esteghlal, The same for blue lines. The black lines show the traitors! the players who have played in both of these enemies and have infact, escalated the rivalry!
+We hereby anounce them as the least loyal players in Iran Superior League. Shame on them!
+
+```{r}
+team2 %>% filter(Home=="Traitor") %>% group_by(player) %>%
+  summarise(Leagues_With_Perspolis=mean(P_count),Leagues_With_Esteghlal=mean(E_count))->Unloyal
+knitr::kable(Unloyal)
+```
+
+
+#### 10.3 What Does it takes to be a champion?
+
+In this part, we want to find out the average number of scored goals, missed goals, changes and faults per X for the champions of the last 5 leagues. Somehow, we want to give a ToDo list to teams that by reaching the number on that list, they will probably become the champion of the league they're playing!
+
+In the _RankingLeague_ Dataframe, we have the champions of the last 5 leagues. let's find out how they have played.
+
+```{r}
+Champs <- filter(RankingLeague,Rank==1,League<16)
+teams<-as.character(levels(factor(Champs$Teams)))
+knitr:: kable(Champs)
+
+
+Champions<-rbind(select(game, league, team=home, team2=away, goal1=home_score, goal2=away_score,round), select(game, team=away, team2=home, goal2=home_score, league, goal1=away_score,round))
+
+Champions %>% filter(team==teams,league %in% c("15","14","13","12","11","10")) %>% 
+  mutate(diff=goal1-goal2)->Champions
+
+change$round=as.integer(change$round)
+Champions$round=as.integer(Champions$round)
+game4<-inner_join(Champions,change,by=c("team","league","round"))
+game5<-merge(Champions,fault,by=c("team","league","round"))
+
+game4 %>% group_by(team,league,round) %>% summarise(changecount=n())->game4
+game5 %>% group_by(team,league,round) %>% summarise(faultcount=n())->game5
+Champions %>% group_by(team,league) %>% summarise(goal1=sum(goal1),diff=sum(diff))->Champions
+
+highchart() %>% 
+  hc_add_series_boxplot(Champions$goal1,by=Champions$team,name="Goals Scored") %>% 
+  hc_add_series_boxplot(Champions$diff,by=Champions$team,name="Goal Difference") %>% 
+  hc_add_theme(hc_theme_darkunica())
+
+```
+
+So, perspolis has to score _an average of 10 goals_ per to eventually become the champion of the 16th league, also, _the sum of perspolis goal difference should be more than 5_. 
+
+
+```{r}
+highchart() %>% 
+  hc_add_series_boxplot(game4$changecount,by=game4$team,name="Changes per game") %>% 
+  hc_add_series_boxplot(game5$faultcount,by=game5$team,name="faults per game") %>% 
+  hc_add_theme(hc_theme_darkunica())
+```
+
+
+We observe that some of these team always change 3 players, in all of the games. this might be a technique that perspolis can use in orther to win the 16 leagues. Also, perpolis players should be careful, not to take more than 2 false actions per game.
+
+
+
+
+

@@ -1,0 +1,373 @@
+---
+title: 'First HomeWork: Road Safety'
+author: "Parnian Kassraie"
+date: '`r Sys.time()`'
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE , fig.align = "center",comment="",warning=F,message=F,error=F)
+
+```
+
+```{r}
+require(ggplot2)
+require(scales)
+require(knitr)
+require(data.table)
+require(ggthemes)
+```
+
+
+<div align="center">
+<img  src="images/accident.jpg"  align = 'center'>
+</div>
+
+# [Road Safety Data](https://data.gov.uk/dataset/road-accidents-safety-data/resource/004eea0a-577a-403b-8507-16f6d8a3afe0)
+
+These files provide detailed road safety data about the circumstances of personal injury road accidents from 2005, the types (including Make and Model) of vehicles involved and the consequential casualties. 
+
+All the data variables are coded rather than containing textual strings. For finding details please [see: Road-Accident-Safety-Data-Guide](Road-Accident-Safety-Data-Guide.xls) 
+
+Also includes: Results of breath-test screening data from recently introduced digital breath testing devices, as provided by Police Authorities in England and Wales
+
+Results of blood alcohol levels (milligrams / 100 millilitres of blood) provided by matching coroners’ data (provided by Coroners in England and Wales and by Procurators Fiscal in Scotland) with fatality data from the STATS19 police data of road accidents in Great Britain. For cases when the Blood Alcohol Levels for a fatality are "unknown" are a consequence of an unsuccessful match between the two data sets.
+
+
+
+***
+
+## Activities
+
+***
+
+### 1. Extract Data from zip file
+
+You can find homework data Stats19_Data_2005-2014.zip in hw1 folder. Please Extract data by **'unzip** function in hw1 folder.
+
+```{r}
+unzip("C:/Users/Nirvana/Documents/University/5th Semester/Data Analysis/Assignments/PA1/PA1/Stats19_Data_2005-2014.zip")
+```
+
+
+***
+
+### 2. Import data
+
+After extract data we can see three csv file
+
+* Accidents0514.csv
+
+* Casualties0514.csv
+
+* Vehicles0514.csv
+
+Please import data to R by **read.csv** function
+
+
+```{r}
+acc = read.csv("C:/Users/Nirvana/Documents/University/5th Semester/Data Analysis/Assignments/PA1/PA1/Stats19_Data_2005-2014/Accidents0514.csv") ## Accidents0514.csv data
+cas = read.csv("C:/Users/Nirvana/Documents/University/5th Semester/Data Analysis/Assignments/PA1/PA1/Stats19_Data_2005-2014/Casualties0514.csv") ## Casualties0514.csv data
+veh = read.csv("C:/Users/Nirvana/Documents/University/5th Semester/Data Analysis/Assignments/PA1/PA1/Stats19_Data_2005-2014/Vehicles0514.csv") ## Vehicles0514.csv data
+```
+
+***
+
+### 3. see structure, dimension and first 20 rows of each data
+
+* #### 3.1.1 Structure of Accidents Data
+```{r}
+str(acc)
+```
+
+* #### 3.1.2 Dimentions of Accidents Data
+```{r}
+Dim1=dim(acc)
+print(Dim1)
+```
+
+* #### 3.1.3 First 20 Rows of Accidents Data
+```{r}
+knitr::kable(acc[1:20,])
+```
+
+* #### 3.2.1 Structure of Casualties Data
+```{r}
+str(cas)
+```
+ 
+* #### 3.2.2 Dimentions of Casualties Data
+```{r}
+Dim2=dim(cas)
+print(Dim2)
+```
+
+* #### 3.2.3 First 20 Rows of Casualties Data
+```{r}
+knitr::kable(acc[1:20,])
+```
+
+* #### 3.2.1 Structure of Vehicle Data
+```{r}
+str(veh)
+```
+
+* #### 3.2.2 Dimentions of Vehicle Data
+```{r}
+Dim3=dim(veh)
+print(Dim3)
+```
+
+* #### 3.2.3 First 20 Rows of Vehicle Data
+```{r}
+knitr::kable(acc[1:20,])
+```
+
+
+***
+
+### 4. sample from data
+
+by use of **sample** function sample 10000 data from acc file.
+
+sample takes a sample of the specified size from the elements of x using either with or without replacement.
+
+```{r}
+x<-dim(acc)
+n<-x[1]
+x<-1:n
+s<-sample(x = x,size = 10000,replace = F)
+accSample<-acc[s,]
+#showing 10 samples:
+knitr::kable(accSample[1:10,])
+```
+
+
+***
+
+### 5. Find Fatal Accident
+
+Find the number of fatal accident 
+
+```{r}
+SevereDays=which(acc$Accident_Severity==1)
+NumberOfSevereDays=length(SevereDays)
+print(NumberOfSevereDays)
+```
+
+##### **_Number of Fatal Accidents =21382_**
+
+* ####  ggplot to visualize bar plot of Accident Severity:
+
+```{r}
+XLab=c("Severity")
+YLab=c("Number of Accidents")
+c<-ggplot(acc,aes(x=acc$Accident_Severity,fill=factor(acc$Accident_Severity),stat="bin"))
+c+geom_bar()+scale_fill_brewer(palette = "Spectral",name="Level of Severity",labels=c("Fatal","Serious","Slight"))+theme_minimal()+xlab(XLab)+ylab(YLab)+ggtitle("Histogram Of Accidents Severity")
+```
+
+***
+
+### 6. Find location of accidents
+
+use sample data in 4 and scatter plot to find location of accidents
+
+```{r}
+ggplot(accSample, aes(x=accSample$Location_Easting_OSGR, y=accSample$Location_Northing_OSGR))+geom_point(aes(colour = accSample$Number_of_Casualties))+scale_colour_gradient(low = "plum1",name="Number of Casualties")+xlab("Location Easting")+ylab("Location Northing")+ggtitle("Car Accidents in England & Wales")
+
+```
+
+
+***
+
+### 7. Black Day!
+
+#### 7.1. In which day we have maximum number of accidents?
+
+```{r}
+a<-table(acc$Date)
+BlackDay=which.max(a)
+
+NumberOfAccidents=a[BlackDay]
+print(NumberOfAccidents)
+```
+
+##### **_Black Day="21/10/2005"_**
+
+#### 7.2. How many cars involve in accident in black day?
+
+```{r}
+b<-acc[which(acc$Date=="21/10/2005"),]
+CarsBlackDay=sum(b$Number_of_Vehicles);
+print(CarsBlackDay)
+```
+
+##### **_Number Of \quad Cars Involved in Black Day's Accidents =1601_**
+
+
+
+***
+
+### 8. Driving by Gender!
+
+#### 8.1. Men vs. Women: Who Are Safer Drivers? 
+
+**_the question is about the safer driver's sex. how ever, we are asked to to use the casualty data. In the first part I have worked with the drivers data. But i have also included the code for the casualty data, with a false Eval. In the next 2 parts however, I only used casualty data_**.
+
+```{r}
+c<-ggplot(veh,aes(x=veh$Sex_of_Driver,fill=factor(veh$Sex_of_Driver),stat="bin"))
+c+geom_bar()+xlim(0.5,2.5)+theme_minimal()+xlab("Gender")+ylab("Count")+ggtitle("Number of Accidents by Gender")+scale_fill_manual(values=c("skyblue1","thistle1"),name="Gender of Drivers",labels=c("Male","Female"))
+Gender=table(veh$Sex_of_Driver)
+#The ratio
+Ratio=Gender[2]/Gender[3]
+```
+
+##### **_Men are involved in accidents are 2.32 times more than women. Thus, women are the safer drivers_**.
+
+#### 8.2 calculation number of accident by age and plot result
+
+```{r}
+#Calculation:
+AccByAge<-table(cas$Age_of_Casualty)
+#Ploting:
+c<-ggplot(cas,aes(x=cas$Age_of_Casualty,stat="bin"))
+c+geom_bar(aes(fill=factor(cas$Age_of_Casualty)))+xlim(0,104)+theme_minimal()+xlab("Age")+ylab("Count")+ggtitle("Number of Accidents by Age of Casualty")+ theme(legend.position = "none")
+
+```
+
+#### 8.3 calculation number of accident by age and Severity and plot result
+
+```{r}
+#First We Merge the two data sets:
+acccas<-merge(acc,cas)
+
+
+#Then We Draw The Plot
+c<-ggplot(acccas,aes(x=acccas$Age_of_Casualty,y=acccas$Accident_Severity))
+c+geom_count(aes(color=factor(acccas$Casualty_Severity)),position="jitter")+scale_color_brewer(palette = "Accent",labels=c("Slight","Serious","Fatal"),name = "Casualty Severity")+xlim(0,100)+xlab("Casualty Age")+ylab("Accident Severity")+ggtitle("Number of Accidents by Age of Casualty")
+
+```
+
+##### According to the Data Set, there are three types ac lets analyze 
+
+* 1- Fatal
+
+* 2- Serious
+
+* 3- Slight
+
+
+##### It can be seen that the number of fatal accidents is much higher in teenagers and young adults. We can conclude that they drive more recklessly than the older age bands.
+
+***
+
+### 9. Age histogram
+
+#### 9.1. plot age histogram and consider gender factor in histogram.
+
+```{r}
+ggplot(cas,aes(cas$Age_of_Casualty))+geom_histogram(aes(fill=factor(cas$Sex_of_Casualty)),binwidth = 5, position='dodge')+scale_fill_brewer(palette = "BuGn",name = "Gender",labels = c("Unkhown", "Male", "Female"))+ggtitle("Histogram of Age of Casualty") + xlab("Age")+ ylab("Count")
+```
+
+
+#### 9.1. plot age histogram and consider Severity factor in histogram.
+
+```{r}
+ggplot(acccas,aes(x=acccas$Age_of_Casualty,fill=factor(acccas$Accident_Severity)))+geom_histogram(binwidth = 5, position='dodge')+xlim(0,104)+scale_fill_brewer(palette = "Pastel1",name = "Severity",labels = c("Fatal", "Serious", "Slight"))+ggtitle(" Severity of Accidents and the Age of Casualty") + xlab("Age")+ ylab("Count")+theme_minimal()
+```
+
+
+
+***
+
+### 10. dangerous vehicle!
+
+#### 10.1. Find most dangerous vehicle. Compute number and plot.
+
+```{r}
+DangVeh=which.max(table(veh$Vehicle_Type))
+print(DangVeh)
+```
+
+##### **_The most dangerous vehicle is #9 which is the "Car"_**.
+
+use bar plot of vehicle age and Severity to find the impact of aging in casualty
+
+hint:to solve you must merge two data od accident and vehicle  by *merge* function
+
+```{r}
+#merging:
+accveh<-merge(acc,veh)
+#ploting:
+ggplot(accveh,aes(x=accveh$Age_of_Vehicle,y=accveh$Number_of_Casualties,color=factor(accveh$Accident_Severity)))+geom_count(position="jitter")+
+  ggtitle(" Severity of accident and vehicles age") +xlab("Vehicle's age")+ ylab("Number Of Casualties")+xlim(0,100)+
+  theme_minimal()+scale_color_brewer(palette = "Pastel1",name = "Casualty Severity",labels = c("Fatal", "Serious", "Slight"))
+```
+
+##### It can be seen that there aren't much old vehicles on the roads. how ever, number of casualty decreases with the car's age. There are many slight accidents with below __5__ casualties in __new__ cars.
+
+***
+
+### 11. What is your idea?
+
+#### 11.1 what is the main reason of injury due to road accidents in the cities?
+
+```{r}
+#First, we merge all the data together
+accvehcas<-merge(x=accveh,y=cas)
+#now we narrow down the search to the cities
+CityAcc<-accvehcas[which(accvehcas$Urban_or_Rural_Area==2),]
+#a table by the casualty type
+Victims<-which.max(table(CityAcc$Casualty_Type))
+```
+##### **_Most of thepeople injured in the cities in road accidents are the "Car Occupants"_**.
+
+```{r}
+ggplot(CityAcc,aes(x=CityAcc$Casualty_Type,fill=factor(CityAcc$Casualty_Severity)))+geom_bar()+xlab("Casuality Type")+ylab("Count")+ggtitle("Reasons and severeness of injury in cities")+scale_fill_brewer(palette = "Pastel1",name = "Casualty Severity",labels = c("Fatal", "Serious", "Slight"))+xlim(0,25)+theme_minimal()
+
+```
+
+##### Maybe this would encourage us to start using public transportation or walk, instead of driving every where!
+
+
+#### 11.2 what is the most accident-involving Highway in England And Wales?
+
+```{r}
+
+MotorwayAcc<-accvehcas[which(accvehcas$X1st_Road_Class==1),]
+DangRoad<-table(MotorwayAcc$X1st_Road_Number)
+a<-which.max(DangRoad)
+
+ggplot(MotorwayAcc, aes(x=MotorwayAcc$Location_Easting_OSGR, y=MotorwayAcc$Location_Northing_OSGR))+geom_point(aes(colour = factor(MotorwayAcc$X1st_Road_Number)))+xlab("Location Easting")+ylab("Location Northing")+ggtitle("Car Accidents in England & Wales Motorways")+theme(legend.position = "none")
+
+```
+
+##### The most dangerous motorway is **Motorway Number 1**. It's a long road connecting the north-west of england to south-east. This explains why it has the biggest number of accidents. the road is plotted below:
+
+```{r}
+Motorway1<-MotorwayAcc[which(MotorwayAcc$X1st_Road_Number==1),]
+
+ggplot(Motorway1, aes(x=Motorway1$Location_Easting_OSGR, y=Motorway1$Location_Northing_OSGR))+geom_point(aes(colour ="firebrick1"))+xlab("Location Easting")+ylab("Location Northing")+ggtitle("The Motorway with the most accidents in England & Wales")+theme(legend.position = "none")
+```
+
+
+#### 11.3 Does the journey purpose of the driver, effect their driving in different hours of the day?
+
+
+##### Yes, It does. Apparently, people are more careless and less focused when their jobs require them to drive.
+
+##### As stated in the Data Guide there are 5 known purposes for the journies that led to accidents:
+
+* ##### 1-Journey as part of work
+* ##### 2-Commuting to/from work
+* ##### 3-Taking pupil to/from school
+* ##### 4-Pupil riding to/from school
+* ##### 5-Other
+
+##### In the following i have ploted the number accidents per journey purpose and light conditions. it can be seen that most of the accidents are in the Daylight and when the Driver has been driving as **a part of work** or **while working** so in fact, our jobs are the main reason of our car accidents, our injuries, our financial losses due to accidents. In other words, we work to pay for working!
+```{r}
+ggplot(accvehcas,aes(x=accvehcas$Journey_Purpose_of_Driver))+geom_bar(aes(fill = factor(accvehcas$Light_Conditions)))+scale_fill_brewer(palette = "BuGn",name = "Light",labels=c("Daylight","Darkness - lights lit","Darkness - lights unlit","Darkness - no lighting","Darkness - lighting unknown","Data missing or out of range"))+xlab("Purpose Of the Journy")+ylab("Count")+ggtitle("How Purpose of the journey and light may effect driving")+xlim(0.5,5.5)
+```
+
+
