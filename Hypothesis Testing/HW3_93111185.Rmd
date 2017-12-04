@@ -1,0 +1,883 @@
+---
+title: "HW3_93111185"
+author: "Parnian kassraie - 93111185"
+date: "October 17, 2016"
+output: pdf_document
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE , warning = F,message = F, error=F,fig.width = 16,fig.height = 8,fig.align = "center")
+
+```
+
+```{r}
+#Adding Libraries:
+
+library(readr)
+library(dplyr)
+library(tidyr)
+library(coin)
+library(magrittr)
+library(ggplot2)
+library(highcharter)
+
+#Loading Data:
+
+load("data/asg.rda")
+load("data/bsg.rda")
+load("data/ash.rda")
+load("data/atg.rda")
+load("data/bts.rda")
+load("data/btm.rda")
+load("data/ast.rda")
+load("data/bst.rda")
+load("data/acg.rda")
+load("data/bcg.rda")
+```
+
+***
+
+## 1. Students lose interest in learning maths during years of education:
+
+###1.1 Data:
+
+The Data relevant to this question can be found in _asg.rda_ and _bsg.rda_ which is the students background qestionnaire data. Variables I'm going to work with are listed below:
+
+  * IDCNTRY : Student's Country
+  * IDSTUD : Student's Unique ID Within Country
+  * IDPOP : Student's School Grade (4th & 8th)
+  * ITSEX : Student's Gender
+  * ABSM01A/SQBSBM14A : Enjoy Learning Maths
+  * ABSM01B/SQBSBM14B : Wish Have Not To Study Math
+  * ABSM01D/SQBSBM14D : Learn Interesting Stuff
+
+
+The last 3 variables are valued from 0-4 from "Strong Disagreement" to "Strong Agreement".
+
+```{r}
+#Extracting the data
+smi = rbind(select(asg,idcntry,idstud,idpop,itsex,q1=asbm01a,q2=asbm01b,q3=asbm01d), 
+            select(bsg,idcntry,idstud,idpop,itsex,q1=bsbm14a,q2=bsbm14b,q3=bsbm14d))
+
+smi %>% filter(!is.na(q1),!is.na(q2),!is.na(q3))->smi
+smi$q1=abs(smi$q1-4)
+smi$q2=abs(smi$q2-4)
+smi$q3=abs(smi$q3-4)
+```
+
+###1.2 Plotting:
+
+In the following plots the distribution of each of these 3 variables is plotted. 
+
+```{r}
+#Enjoy Learning
+ggplot(smi,aes(q1,color=factor(idpop)))+geom_density(size=rel(1.5))+
+  scale_color_brewer(palette = "Dark2",name="Grade",labels=c("4th Grade","8th Grade"))+
+  labs(x="How much they enjoy Learning Math",y="Density",title="Learning Enjoyment")+xlim(-.5,3.5)+
+  theme_bw()
+#wish didn't have to study math
+ggplot(smi,aes(q2,color=factor(idpop)))+geom_density(size=rel(1.5))+
+  scale_color_brewer(palette = "Dark2",name="Grade",labels=c("4th Grade","8th Grade"))+
+  labs(x="How much they wished so",y="Density",title="Wishing Didn't had to study Math")+xlim(-.5,3.5)+
+  theme_bw()
+
+#learn interesting stuff
+ggplot(smi,aes(q3,color=factor(idpop)))+geom_density(size=rel(1.5))+
+  scale_color_brewer(palette = "Dark2",name="Grade",labels=c("4th Grade","8th Grade"))+
+  labs(x="How much they enjoy Learning new things",y="Density",title="Like Learning Interesting Things")+xlim(-.5,3.5)+
+  theme_bw()
+
+```
+
+ A certain difference can be seen in the distributions. We'll make it more quantitive in the following section.
+ 
+###1.3 Numeric Calculations:
+
+We'll calculate the quantiles of our samples to gain some sense over them.
+```{r}
+quantile(filter(smi,idpop==1)$q1)
+quantile(filter(smi,idpop==2)$q1)
+quantile(filter(smi,idpop==1)$q2)
+quantile(filter(smi,idpop==2)$q2)
+quantile(filter(smi,idpop==1)$q3)
+quantile(filter(smi,idpop==2)$q3)
+```
+
+###1.4 Hypothesis Testing:
+
+Enjoyment Variable is an ordinal variable, meaning that it's value doens't mean anything and only the rank matters. Thus, it is better tested using the wilcoxon rank sum test. I'll compare the Results of the 3 questions/variables above for 4th and 8th grade.
+
+```{r}
+#Enjoy Learning
+wilcox.test(filter(smi,idpop==1)$q1,filter(smi,idpop==2)$q1,alternative="greater")
+#wish didn't have to study math
+wilcox.test(filter(smi,idpop==1)$q2,filter(smi,idpop==2)$q2,alternative="less")
+#learn interesting stuff
+wilcox.test(filter(smi,idpop==1)$q3,filter(smi,idpop==2)$q3,alternative="greater")
+```
+
+###1.5 Analyzing the results:
+
+The Results of the tests are stated below:
+
+Hypothesis Subject                | P-value | True Location Shift of H1 compared to H2
+--------------------------------- | ------- | ----------------------------------------
+Enjoy Learning Maths              |$2.2e-16$| Greater
+Wish They Didn't Had to Study Math|$2.2e-16$| Less
+Enjoy Learning Interesting Stuff  |$2.2e-16$| Greater
+
+In each of the test above, the first Hypothesis is that the distributions aren't the same between 4th and 8th graden, and the second hypothesis opposes this. According to the table we can see that the fondness distributions are certainly not the same.
+  * 4th graders enjoy learning math more than 8th graders.
+  * 8th grader wished they didn't have to study math more than 4th graders.
+  * 4th graders enjoy learning interesintg suff more than 8th graders.
+  
+So, We come to the conclusion that student's gradually stop enjoying learning maths. But Maybe the problem isn't that our students loose interest in math. According to the second row in the table about, the problem might students loosing enjoyment in learning in general.
+
+
+***
+
+## 2.Iranian students are better at reasoning than at applying.
+
+###2.1 Data:
+
+
+The data relevant to this question can be found both in _asa.rda_ and _asg.rda_, we'll choose _asg.rda_ and _bsg.rda_ again.The following variables are going to be used:
+
+  * ASMAPP01-ASMAPP05/BSMAPP01-BSMAPP05 : Math applying Scores
+  * ASMREA01-ASMREA05/BSMREA01-BSMREA05 : Math Reasoning Scores
+  * ASSAPP01-ASSAPP05/BSSAPP01-BSSAPP05 : Science applying Scores
+  * ASSREA01-ASSREA05/BSSREA01-BSSREA05 : Science Reasoning Scores
+  * IDCNTRY : Student's Country
+  * IDSTUD : Student's Unique ID Within Country
+  * IDGRADE : Student's School Grade
+  * ITSEX : Student's Gender
+  
+There are 5 distinct plausible values for students scores in math/science reasoning/applying, so there are 20 score columns relevant to our question. Since we're not aware of the calculation methodology of these values, I'm just going to use they're average as the student's score.
+  
+
+```{r}
+asg %>% mutate(ma=round((asmapp01+asmapp02+asmapp03+asmapp04+asmapp05)/5,2),
+               mr=round((asmrea01+asmrea02+asmrea03+asmrea04+asmrea05)/5,2),
+               sa=round((assapp01+assapp02+assapp03+assapp04+assapp05)/5,2),
+               sr=round((assrea01+assrea02+assrea03+assrea04+assrea05)/5,2))->asg
+
+bsg %>% mutate(ma=round((bsmapp01+bsmapp02+bsmapp03+bsmapp04+bsmapp05)/5,2),
+               mr=round((bsmrea01+bsmrea02+bsmrea03+bsmrea04+bsmrea05)/5,2),
+               sa=round((bssapp01+bssapp02+bssapp03+bssapp04+bssapp05)/5,2),
+               sr=round((bssrea01+bssrea02+bssrea03+bssrea04+bssrea05)/5,2))->bsg
+
+
+rba=rbind(select(asg,idcntry,idstud,idgrade,itsex,ma,mr,sa,sr),
+          select(bsg,idcntry,idstud,idgrade,itsex,ma,mr,sa,sr))
+
+rba %>% filter(idcntry==364)->rba
+
+
+```
+
+  
+###2.2 Plotting:
+
+In the Plot below the score distribution of each of this sclaes (reasoning and applying) is compared. The red line indicates the _Reasoning score distribtion_ and the blue line is the _Applying Score distribution_. Also, The green and yellow lines represent _Science Reasoning_ and _Science Applying_ respectively. They Seem Slightly different. Later will find out if this difference is meaningful. 
+
+```{r}
+
+highchart() %>% 
+  hc_add_series_density(density(rba$mr),name = "Math Reasoning Distribution") %>% 
+  hc_add_series_density(density(rba$ma),name = "Math Applying Distribution") %>% 
+  hc_add_series_density(density(rba$sr),name = "Science Reasoning Distribution") %>% 
+  hc_add_series_density(density(rba$sa),name = "Science Applying Distribution") %>% 
+  hc_title(text = "Various Score Distributions ") %>% 
+  hc_add_theme(hc_theme_smpl())
+```
+
+###2.3 Numeric Calculations:
+
+We'll calculate the quantiles of our samples to gain some sense over them.
+
+```{r}
+quantile(rba$ma)
+quantile(rba$mr)
+quantile(rba$sa)
+quantile(rba$sr)
+quantile((rba$ma+rba$sa)/2)
+quantile((rba$mr+rba$sr)/2)
+```
+
+###2.4 Hypothesis Testing:
+
+I'll be using the t-test here, since the variables are continues (scores of the students in reasoning and applying) and due to the large number of samples, taking advantage of the central limit theorem, we can assume that the sample mean distribution is normal. Now we want to see if the sample mean distribution of _Reasoning Score_ and _Applying Score_ are the same or not. first I'll take the t-test on science and math separatly and eventually I'll take an average on math/science to derive a general reasoning score.
+
+```{r}
+# Mathematical Reasoning/Applying t-test:
+t.test(rba$ma,rba$mr)
+
+#Scientific Reasoning/Applying t-test:
+t.test(rba$sa,rba$sr)
+
+#General Reasoning.Applying t-test:
+t.test((rba$ma+rba$sa)/2,(rba$mr+rba$sr)/2)
+
+```
+
+Data Vectors | P-value | Mean of Rea | Mean of App | Confidence Interval
+------------ | ------- | ----------- | ----------- | -------------------
+Math Only    |$2.5e-7$ | $429.45$    | $423.39$    | $[-8.4, -3.8]$
+Science Only |$1.7e-8$ | $471.00$    | $465.26$    | $[-8.9, -4.3]$
+General      |$9.0e-9$ | $450.67$    | $444.32$    | $[-8.5, -4.2]$
+
+###2.5 Analyzing the results:
+
+It can be seen that the distributions of reasoning and applying are quite different. However, comparing the means or confidence interval, we can see that students are better at reasoning than applying.
+
+
+
+***
+
+## 3. Children of the more educated parents are more successful at school.
+
+###3.1 Data:
+
+
+In this part, we have to merge the following columns from _ash_ and _asg_ dataframes. since we only have the _Home Background_ Data for the 4th graders, this question will not include the 8th graders.
+
+  *IDCNTRY : Student's Country
+  *IDSTUD : Student's ID Within Country
+  *ASDHEDUP : Parent's Highest Education Level
+  *ASMMAT01-ASMMAT05 : Student's Overall Math Score Plausible Values
+  *ASSSCI01-ASSSCI05 : Student's Overall Science Score Plausible Values
+  
+The Educational Level Variable Takes The following Values:
+
+Value | Meaning
+----- | -------
+1     | UniverSity or Higher
+2     | Post Secondary But not University
+3     | Upper Secondary
+4     | Lower Secondary
+5     | Some Primary, Lower Secondary or No School
+6     | Not Applicable
+
+  
+```{r}
+ash %>% select(asdhedup,idcntry,idstud) -> ashe
+asg %>% mutate(ms=round((asmmat01+asmmat02+asmmat03+asmmat04+asmmat05)/5,2),
+               ss=round((asssci01+asssci02+asssci03+asssci04+asssci05)/5,2)) %>% 
+                 select(idcntry,idstud,ms,ss)->asge
+         
+spe <- merge(ashe,asge,by=c("idcntry","idstud"))
+spe %>% filter(!is.na(asdhedup)) %>% filter(asdhedup<6)->spe
+remove(ashe)
+remove(asge)
+```
+
+###3.2 Plotting:
+
+We will compare the boxplots of score distribution for each level of parent's education to gain some sense about the data.
+
+```{r}
+highchart() %>% 
+  hc_add_series_boxplot(spe$ms,by=spe$asdhedup,name="Science Score") %>% 
+  hc_add_series_boxplot(spe$ss,by=spe$asdhedup,name="Math Score") %>% 
+  hc_add_theme(hc_theme_google()) %>% 
+  hc_yAxis(title = list(text = "Score Distribution")) %>% 
+  hc_xAxis(title = list(text = "Parents Education Level")) %>% 
+  hc_title(text = "success vs. Parents Education")
+
+```
+
+We can vividly see that the average score drops are the education level decreases. Let's find out if this drop shows some correlation between these variables.
+
+###3.3 Numeric Calculations:
+
+We'll calculate the quantiles of our samples to gain some sense over them.
+
+```{r}
+l1<-filter(spe,asdhedup==1)
+l2<-filter(spe,asdhedup==2)
+l3<-filter(spe,asdhedup==3)
+l4<-filter(spe,asdhedup==4)
+l5<-filter(spe,asdhedup==5)
+
+quantile((l1$ss+l1$ms)/2)
+quantile((l2$ss+l2$ms)/2)
+quantile((l3$ss+l3$ms)/2)
+quantile((l4$ss+l4$ms)/2)
+quantile((l4$ss+l4$ms)/2)
+quantile((l5$ss+l5$ms)/2)
+```
+
+###3.4 Hypothesis Testing:
+
+The objective is to find out whether there is a relation between parents' education and student success (in which we meassure by their overall scores in math and science). The score is a continues variable and since we have a great number of samples, we can use the central limit theorem and assume that the average score has a normal distribution. Therefore, I'll be using the t-test here. Since we have 5 levels of education, we'll take couple of different t-test to find out how exactly the parents education effects the child's success. 
+
+```{r}
+
+#t-test between university level education and highschool level (1 & 2)
+
+t.test((l1$ss+l1$ms)/2,(l2$ss+l2$ms)/2)
+
+#t-test between upper and lower secondry (3 & 4)
+t.test((l3$ss+l3$ms)/2,(l4$ss+l4$ms)/2)
+
+#t-test between lower secondry and primary/no school (4 & 5)
+t.test((l4$ss+l4$ms)/2,(l5$ss+l5$ms)/2)
+
+#t-test between
+remove(l1)
+remove(l2)
+remove(l3)
+remove(l4)
+remove(l5)
+```
+
+###3.5 Analyzing the results:
+
+
+Data Vectors | P-value | Mean of Higher Level | Mean of Lower Level | Confidence Interval
+------------ | ------- | ----------- | ----------- | -------------------
+1 & 2        |$2.2e-16$| $520.82$    | $506.55$    | $[13, 15]$
+3 & 4        |$2.2e-16$| $484.25$    | $442.08$    | $[40, 43]$
+4 & 5        |$2.2e-16$| $442.08$    | $386.80$    | $[52, 57]$
+
+P-value for all three comparisions is small, thus, the difference between score distributions is valid. But is it also meaningful in terms of social scales? It is. Take a look at the confidence interval column. The difference between students' scores is around 14 points depending on whether they're parents have attended university or other higher education institutes. But the score difference between students with illiterate parents or with parents who have lower secondry education is high, around 54. This, we can conclude that:
+
+  * The higher the parents' education, the more successful the child.
+  * The second derivative of student's success as a function of  parents' education, is negative. meaning that in the higher levels of education, score difference is less, compared to lower education levels.
+
+
+
+
+***
+
+## 4. More experienced or more educated teachers, raise more successful students.
+
+###4.1 Data:
+
+
+We need to find the correlation between teachers' education/experience with students' scores. Thus, we'll be merging _ast_ with _atg_ as well as _bst_ with _btm_ and _bts_. _ast_ and _bst_ contain students score information and _atg_, _bts_ and _btm_ have the teachers data. The variables used in solving this question are:
+
+  * ATBG04/BTBG04 : highest level of formal education completed (ISCED scale)
+  * ATDG01/BTDG01 : Years of experience
+  * IDSUBJ : Teacher's teaching subject at school
+  * IDPOP: Standardized Grade ID (4th or 8th)
+  * IDCNTRY : Student's Country
+  * IDTEALIN : Teacher's ID and Link
+  * STUDID : Student's ID
+  * ASMMAT01-ASMMAT05/BSMMAT01-BSMMAT05 : Student's Overall Math Score Plausible Values
+  * ASSSCI01-ASSSCI05/BSSSCI01-BSSSCI05 : Student's Overall Science Score Plausible Values
+
+
+```{r}
+atg %>% select(idcntry, idtealin, ed=atbg04, ex=atdg01, sy=atds05, my=atdm05) -> atg4
+bts %>% mutate(my=0) %>% select(idcntry, idtealin, ed=btbg04, ex=btdg01, sy=btds05 ,my) -> bts4
+btm %>% mutate(sy=0) %>% select(idcntry, idtealin, ed=btbg04, ex=btdg01, my=btdm05, sy) -> btm4
+
+ast %>% filter(!is.na(idsubj)) %>% 
+  mutate(ms=(asmmat01+asmmat02+asmmat03+asmmat04+asmmat05)/5,
+               ss=(asssci01+asssci02+asssci03+asssci04+asssci05)/5) %>% 
+  mutate(score=ifelse(idsubj==1,ms,ifelse(idsubj==2,ss,(ms+ss)/2))) %>% 
+  select(idcntry, idtealin, idstud, idsubj,idpop,score) ->ast4
+
+#choosing the student's corresponding overall score
+bst %>% filter(!is.na(idsubj)) %>% 
+  mutate(ms=(bsmmat01+bsmmat02+bsmmat03+bsmmat04+bsmmat05)/5,
+               ss=(bsssci01+bsssci02+bsssci03+bsssci04+bsssci05)/5) %>% 
+  mutate(score=ifelse(idsubj==1,ms,ss)) %>% 
+  select(idcntry, idtealin, idstud, idsubj,idpop,score) ->bst4
+
+
+ets <- rbind(merge(bst4,bts4),
+             merge(bst4,btm4))
+ets <- rbind(merge(ast4,atg4),ets)
+
+
+ets %>% mutate(subject=ifelse(idsubj==1,"Math",ifelse(idsubj==2,"Science","Both"))) %>% 
+  select(idcntry,idpop,idstud,idtealin,subject,score,education=ed,experience=ex)->ets
+
+remove(atg4)+remove(btm4)+remove(ast4)+remove(bst4)+remove(bts4)
+
+knitr::kable(ets[1:10,])
+```
+
+In _ets_ dataframe there is a row for each student-teacher relation. For example, if student A, has classes with 3 teachers, then there are 3 corresponding rows. Having this in mind, read the explaination to some of _ets_ columns.
+
+Column | Meaning
+------ | ---------------------------------------
+Subject| The Subject of the student-teacher link
+Score  | Student's score relevant to the link's subject (i.e. math score if the subject is math, and the average score is the subject is "Both")
+
+###4.2 Plotting:
+
+I'll compare the score distribution for 4th graders are 8th graders separately. Once grouped by teachers' experience and once grouped by their education.
+
+```{r}
+#4Th graders, experience
+ggplot(filter(ets,idpop==1),
+           aes(x=score,color=factor(experience)))+geom_density(size=rel(1.5))+
+  labs(x="Score",y="Density",title="4th Graders Score distribution Conditioned on Teacher's Experience")+
+  scale_color_brewer(palette = "Spectral",
+                     labels=c("20 Years or More","Between 10 & 20 Years","Between 5 & 10 Years","Less than 5 Years"),
+                     name="Years of Experience")+
+  theme_bw()
+
+#8Th graders, experience
+ggplot(filter(ets,idpop==2),
+           aes(x=score,color=factor(experience)))+geom_density(size=rel(1.5))+
+  labs(x="Score",y="Density",title="8th Graders Score distribution Conditioned on Teacher's Experience")+
+  scale_color_brewer(palette = "Spectral",
+                     labels=c("20 Years or More","Between 10 & 20 Years","Between 5 & 10 Years","Less than 5 Years"),
+                     name="Years of Experience")+
+  theme_bw()
+
+#4Th graders, education
+ggplot(filter(ets,idpop==1),
+           aes(x=score,color=factor(education)))+geom_density(size=rel(1.5))+
+  labs(x="Score",y="Density",title="4th Graders Score distribution Conditioned on Teacher's Education")+
+  scale_color_brewer(palette = "Spectral",
+                     labels=c("Primary","Lower Secondry","Upper Secondry","Post-secondry Non-tertiary",
+                              "Short Cycle Tertiary","Bachelor's or Equivalent Level"),
+                     name="Years of Experience")+
+  theme_bw()
+
+#8Th graders, education
+ggplot(filter(ets,idpop==2),
+           aes(x=score,color=factor(education)))+geom_density(size=rel(1.5))+
+  labs(x="Score",y="Density",title="8th Graders Score distribution Conditioned on Teacher's Education")+
+  scale_color_brewer(palette = "Spectral",
+                     labels=c("Primary","Lower Secondry","Upper Secondry","Post-secondry Non-tertiary",
+                              "Short Cycle Tertiary","Bachelor's or Equivalent Level"),
+                     name="Years of Experience")+
+  theme_bw()
+```
+
+We certainly can notice some differences between the distributions. We're going to findout if they mean anything.
+
+###4.3 Numeric Calculations:
+
+We'll calculate the quantiles of our samples to gain some sense over them.
+
+```{r}
+
+quantile(filter(ets,idpop==1,experience==1)$score)
+quantile(filter(ets,idpop==2,experience==1)$score)
+quantile(filter(ets,idpop==1,education==6)$score)
+quantile(filter(ets,idpop==2,education==6)$score)
+quantile(filter(ets,idpop==1,experience==4)$score)
+quantile(filter(ets,idpop==2,experience==4)$score)
+quantile(filter(ets,idpop==1,education==1)$score)
+quantile(filter(ets,idpop==2,education==1)$score)
+```
+
+
+###4.4 Hypothesis Testing:
+
+Similar to the 2 previous questions, the score variable is continues and according to the CLT, the sample mean has a normal distribution. Thus, we can take a t.test to find out if a difference in teachers education/experience causes a meaningful difference in the students average score.
+
+```{r}
+#4Th graders, experience
+t.test(filter(ets,idpop==1,experience==1)$score,filter(ets,idpop==1,experience==4)$score)
+#8Th graders, experience
+t.test(filter(ets,idpop==2,experience==1)$score,filter(ets,idpop==2,experience==4)$score)
+#4Th graders, education
+t.test(filter(ets,idpop==1,education==6)$score,filter(ets,idpop==1,education==1)$score)
+#8Th graders, education
+t.test(filter(ets,idpop==2,education==6)$score,filter(ets,idpop==2,education==1)$score)
+```
+
+###4.5 Analyzing the results:
+
+I have taken 4 distinct t-tests. between the 2 highest and lowest values of education/experience for 4th/8th graders separately. The results can be seen in the table below.
+
+
+Data Vectors    | P-value | Mean of Higher Level | Mean of Lower Level | Confidence Interval
+--------------- | ------- | -------------------- | ------------------- | -------------------
+Experience - 4th (Above 20 vs. Below 5)|$2.2e-16$| $486.45$         | $456.45$            | $[28, 31]$
+Experience - 8th (Above 20 vs. Below 5)|$2.2e-16$| $480.03$             | $451.77$            | $[27, 29]$
+Education - 4th (Bachelor's vs. Primary)|$2.2e-16$| $505.31$             | $307.95$            | $[192, 201]$
+Education - 8th (Bachelor's vs. Primary)|$2.2e-16$| $496.96$             | $401.96$            | $[89, 100]$
+
+Since all the p-values are quite small, we can conclude that the difference in the scores isn't accidental. But let's see what do these numbers mean.
+We can confidently state that there is a correlation between teachers experiance/education and the students success, but lets make more specific observation by comparing the Confidence intervals.
+
+  * Teachers Education is _Exteremly_ important to 4th graders. It can cause a significant harm to student's success. (3rd row)
+  * The effect of education on students success is _as real as_ the experience, but much  more influental. (comparing the Confidence intervals of first 2 rows with the last 2 rows)
+  * The Teachers experience and education, affects the 4th graders more than the 8th graders. i.e. the knowledge of the 4th graders depends more on their teachers than the 8th graders.
+ 
+ 
+ 
+  
+***
+
+## 5. The Students from the schools with better utilities have better scores than others.
+
+###5.1 Data:
+
+
+First we'll group the _asg_ data by school and grade(4/8) and calculate the average student score in each school in each grade. 
+There are many variables in the _acg_ and _bcg_ datasets related to the schools utility. I'm going to use two of them that are explain below
+
+  * IDCNTRY : Country's ID
+  * IDSCHOOL : School's ID
+  * STUDID : Student's ID
+  * ASMMAT01-ASMMAT05 : Student's Overall Math Score Plausible Values
+  * ASSSCI01-ASSSCI05 : Student's Overall Science Score Plausible Values
+  * ACDG09 : School Library Books
+  * ACDGCMP/BCDGCMP : Computer Available Per Student
+  
+Utility variables:
+
+Value  |ACDG09                         | ACDGCMP/BCDGMP
+------ | ----------------------------- | -------
+1      | Library with Above 5000 Books | 1 PC for 1-2 Student
+2      | Library with 500-5000 Books   | 1 PC for 3-4 Students
+3      | Library with Below 500 Books  | 1 Pc for 6 or More Students
+4      | No Library                    | No PCs Available
+
+```{r}
+asg %>% mutate(ms=(asmmat01+asmmat02+asmmat03+asmmat04+asmmat05)/5,
+               ss=(asssci01+asssci02+asssci03+asssci04+asssci05)/5) %>% 
+  mutate(as=(ms+ss)/2) %>% 
+  select(idcntry,idschool,as,idpop) %>% 
+  group_by(idpop,idschool,idcntry) %>% 
+  summarise(MAS=round(mean(as,na.rm=T),2))->sgs1
+
+bsg %>% mutate(ms=(bsmmat01+bsmmat02+bsmmat03+bsmmat04+bsmmat05)/5,
+               ss=(bsssci01+bsssci02+bsssci03+bsssci04+bsssci05)/5) %>% 
+  mutate(as=(ms+ss)/2) %>% 
+  select(idcntry,idschool,as,idpop) %>% 
+  group_by(idpop,idschool,idcntry) %>% 
+  summarise(MAS=round(mean(as,na.rm=T),2))->sgs2
+
+
+acg %>% select(idcntry,idschool,lib=acdg09,cmp=acdgcmp)->sus1
+bcg %>% select(idcntry,idschool,cmp=bcdgcmp)->sus2
+
+sus1<-merge(sus1,sgs1,by=c("idcntry","idschool"))
+sus1 %>% filter(!is.na(cmp),!is.na(lib))->sus1
+
+sus2<-merge(sus2,sgs2,by=c("idcntry","idschool"))
+sus2 %>% filter(!is.na(cmp))->sus2
+
+remove(sgs1)
+remove(sgs2)
+```
+
+###5.2 Plotting:
+
+The Distribution of Mean score at schools are compared below for different values of library and computer utilities. Note that the 8th graders data doesn't contain the library column, thus the comparision is made over PCs only.
+
+```{r}
+
+#effect of Libs and Pcs on 4th graders Score
+highchart() %>% 
+  hc_add_series_boxplot(sus1$MAS,by=sus1$lib,name="Libraries") %>% 
+  hc_add_series_boxplot(sus1$MAS,by=sus1$cmp,name="Computers") %>% 
+  hc_add_theme(hc_theme_smpl()) %>% 
+  hc_title(text = "effect of Libs and Pcs on 4th graders Score")
+
+#effect of PCs on 8th Graders score
+highchart() %>% 
+  hc_add_series_boxplot(sus2$MAS,by=sus2$cmp,name="Computers") %>% 
+  hc_add_theme(hc_theme_smpl()) %>% 
+  hc_title(text="effect of PCs on 8th Graders score")
+
+```
+
+
+###5.3 Numeric Calculations:
+
+We'll calculate the quantiles of our samples to gain some sense over them.
+
+```{r}
+
+quantile(filter(sus2,cmp==1)$MAS)
+quantile(filter(sus2,cmp==1)$MAS)
+quantile(filter(sus1,cmp==1)$MAS)
+quantile(filter(sus2,cmp==2)$MAS)
+quantile(filter(sus2,cmp==4)$MAS)
+quantile(filter(sus1,cmp==4)$MAS)
+quantile(filter(sus1,lib==4)$MAS)
+quantile(filter(sus1,lib==1)$MAS)
+```
+
+
+###5.4 Hypothesis Testing:
+
+The objective is to compare mean average score for schools with different utilities and see if they are meaningfully different. Since the iids are continues(scores) according to the CLT the conditions of the t.test are held here and we can use it to figureout whether there is a difference in these distributions. I'll be comparing Best (1 Pc for 1-2 Students) and Worst (No Computers) cases in the first 3 test. The last t.test is taken between (1 PC for 1-2 Student) and (1 PC for 3-4 Students) for 8th graders.
+
+```{r}
+#Lib for 4th
+t.test(filter(sus1,lib==1)$MAS,filter(sus1,lib==4)$MAS)
+#PC for 4th
+t.test(filter(sus1,cmp==1)$MAS,filter(sus1,cmp==4)$MAS)
+#Pc for 8th
+t.test(filter(sus2,cmp==1)$MAS,filter(sus2,cmp==4)$MAS)
+#pc for 8th non extreme
+t.test(filter(sus2,cmp==1)$MAS,filter(sus2,cmp==2)$MAS)
+```
+
+###5.5 Analyzing the results:
+
+In the table below, t.test values of each of the tests are listed:
+
+Category                 | P-value<| Better School's Score|Worse School's Score | Confidence Interval
+--------------------------- | ------- | -------------------- | ------------------- | -------------------
+Library for 4th Graders     |$2.2e-16$| $522.36$             | $416.68$            | $[98, 112]$
+Computers for 4th Graders   |$2.2e-16$| $496.26$             | $392.19$            | $[96, 111]$
+Computers for 8th Graders #1|$2.2e-16$| $480.26$             | $384.90$            | $[88, 102]$
+Computers for 8th Graders #2|$0.33$   | $480.26$             | $384.90$            | $[88, 102]$
+
+ * ###First 3 Test:
+ 
+It's obvious that in each test $H_0$ is wrong. So, we can conclude that _Utilities is school can increase the student's performance_. Also the following statements can be infered from the t.test results.
+
+ * Abundant number of computers/books increases the average score for about 100 units.
+ * This effect is probably more significant in the 4th graders, compared to the 8th graders.
+ *### Last Test:
+The p-value for this test is 0.33 thus, there is no significant difference in score distribution whether we have 0.5 pC for student or 0.25. i.e. $H_0$ is correct. So, we can finally conclude that increasing utilities increases students score, but with a negative second derivative. Meaning that from some point, adding more utilities wont increase the score.
+
+
+
+***
+
+## 6. Having sufficient utilities at home has a positive effect in student's educational progress.
+
+###6.1 Data:
+
+
+To answer this question, I have made the following assumptions:
+
+  * An 8th grader, living in a good home, has lived in a good home since 4th grade.
+  * Even though we are comparing the scores of two different generation of the student's, the average score of 4th graders, can be a good estimation for the average score of current 8th graders, when they were at 4th grade.
+
+The Dataframe used in this part:
+
+  *asg/bsg : Student Background Data
+  
+The following variables are used:
+
+  * ASDG05S/BSDG05S : Number of home study supports
+  * IDPOP: Standardized Grade ID (4th or 8th)
+  * IDCNTRY : Student's Country
+  * STUDID : Student's ID
+  * ASMMAT01-ASMMAT05/BSMMAT01-BSMMAT05 : Student's Overall Math Score Plausible Values
+  * ASSSCI01-ASSSCI05/BSSSCI01-BSSSCI05: Student's Overall Science Score Plausible Values
+  
+Explanation of ASDG05S/BSDG05S: 
+
+Value | Meaning
+----- | -----------------------------------------
+0     |Neither own room nor internet connection
+1     |Either own room or internet connection
+2     |both own room and internet connection
+  
+  
+```{r}
+asg %>% mutate(ms=round((asmmat01+asmmat02+asmmat03+asmmat04+asmmat05)/5,2), 
+               ss=round((asssci01+asssci02+asssci03+asssci04+asssci05)/5,2)) %>%
+  mutate(as=(ms+ss)/2) %>% 
+  select(idcntry,idstud,as,idpop,welfare=asdg05s)->asg6
+  
+bsg %>%  mutate(ms=round((bsmmat01+bsmmat02+bsmmat03+bsmmat04+bsmmat05)/5,2),
+               ss=round((bsssci01+bsssci02+bsssci03+bsssci04+bsssci05)/5,2)) %>% 
+  mutate(as=(ms+ss)/2) %>% 
+  select(idcntry,idstud,as,idpop,welfare=bsdg05s)->bsg6
+
+hws<-rbind(asg6,bsg6)
+
+hws %>% filter(!is.na(welfare)) ->hws
+
+remove(asg6)+remove(bsg6)
+```
+
+###6.2 Plotting:
+
+having the first two assumption in mind, we will compare the average scores of 4th graders and 8th graders for each level of household welfare.
+ We can see that no matter what the welfare level is, the progress is negative, but the average score increases with welfare. with a t-test we'll findout if this guess is true.
+ 
+```{r}
+highchart() %>% 
+  hc_add_series_boxplot(filter(hws,welfare==0)$as,filter(hws,welfare==0)$idpop,name="Low Welfare Level") %>% 
+  hc_add_series_boxplot(filter(hws,welfare==1)$as,filter(hws,welfare==1)$idpop,name="Mid Welfare Level") %>% 
+  hc_add_series_boxplot(filter(hws,welfare==2)$as,filter(hws,welfare==2)$idpop,name="High Welfare Level") %>% 
+  hc_title(text="Comparing Student's progress for different levels of welfare") %>% 
+  hc_add_theme(hc_theme_smpl())
+```
+
+###6.3 Numeric Calculations:
+
+We'll calculate the quantiles of our samples to gain some sense over them.
+
+```{r}
+
+quantile(filter(hws,welfare==2,idpop==2)$as)
+quantile(filter(hws,welfare==1,idpop==2)$as)
+quantile(filter(hws,welfare==0,idpop==2)$as)
+quantile(filter(hws,welfare==2,idpop==1)$as)
+quantile(filter(hws,welfare==1,idpop==1)$as)
+quantile(filter(hws,welfare==0,idpop==1)$as)
+
+```
+
+
+###6.4 Hypothesis Testing:
+
+Our goal is to findout whether having lived in a utilized household has a positive correlation with student's progress. To investigate this, i'll compare the scores of student's in 4th & 8th grades with who have the same utilities at home. Now lets check If there is a meaningful positive difference between the average score in the houses with the highest utilities, compared to the poor.
+
+```{r}
+# NO UTILITIES - Low Level
+t.test(x=filter(hws,welfare==0,idpop==2)$as,y=filter(hws,welfare==0,idpop==1)$as)
+#EITHER INTERNET OR A ROOM - Mid Level
+t.test(x=filter(hws,welfare==1,idpop==2)$as,y=filter(hws,welfare==1,idpop==1)$as)
+#BOTH INTERNET AND A ROOM - High Level
+t.test(x=filter(hws,welfare==2,idpop==2)$as,y=filter(hws,welfare==2,idpop==1)$as)
+```
+
+###6.5 Analyzing the results:
+
+The results of the t-test are listed below:
+
+Category             | P-value  | 8th graders' Score|4th grader's Score | Confidence Interval
+-------------------- | -------- | ----------------- | ------------------| -------------------
+Low Level of Welfare |$0.008$   | $393.65$          | $395.57$          | $[-3.3 -0.5]$
+Mid Level of Welfare |$<2.2e-16$| $445.22$          | $472.63$          | $[-28, -26]$
+High Level of Welfare|$<2.2e-16$| $496.74$          | $510.70$          | $[-14, -13]$
+
+comparing the confidence intervals and p values, we can derive the following statements:
+
+  * 1) In all of the tests, the p-value is small, thus $H_0$ is wrong.
+  * 2) No matter what the welfare level is, there is'nt a progress from 4th to 8th grade.
+  * 3) When the welfare level is low, the score drop is less significant than the other levels.
+  * 4) in general, the students with better household utilities have better grades (should be prooven with some other t-test) but the _progress_ of the student's has nothing to do with they're home utilities.
+  * 5) these results can mean that our primary assumptions were wrong, but I couldn't find any other better variable for estimating students progress.
+
+
+
+
+***
+
+## 7. Calm and steady environment at school plays an important role  in student's educational progress.
+
+###7.1 Data:
+
+
+Since we dont have the 4th grade school and score data for the current 8th graders, we have to make the two following assumptions:
+
+  * An 8th grader current school's level of order is the same as the 8th grader's school back in 4th grade
+  * The current 4th grade data is a good estimation for the past of the current 8th graders
+  
+Dataframes:
+
+  *acg/bcg
+  *asg/bsg
+
+Variables:
+
+  * ACDGDAS/BCDGDAS : School Discipline and safety
+  * ACBG15E/BCBG17E : School Orderly Atmosphere
+  * IDPOP : Standardized Grade ID (4th or 8th)
+  * IDCNTRY : Student's Country
+  * SCHOOLID :School's ID
+  * ASMMAT01-ASMMAT05/BSMMAT01-BSMMAT05 : Student's Overall Math Score Plausible Values
+  * ASSSCI01-ASSSCI05/BSSSCI01-BSSSCI05: Student's Overall Science Score Plausible Values
+
+Meaning of new variables:
+
+Value |(A/B)CDGDAS        
+----- | ----------------- 
+1     |Hardly any problems
+2     |Minor Problems     
+3     |Moderate Problems  
+
+
+```{r}
+asg %>% mutate(ms=round((asmmat01+asmmat02+asmmat03+asmmat04+asmmat05)/5,2), 
+               ss=round((asssci01+asssci02+asssci03+asssci04+asssci05)/5,2)) %>%
+  mutate(as=(ms+ss)/2) %>% 
+  select(idcntry,as,idpop,idschool)->asg7
+
+bsg %>%  mutate(ms=round((bsmmat01+bsmmat02+bsmmat03+bsmmat04+bsmmat05)/5,2),
+               ss=round((bsssci01+bsssci02+bsssci03+bsssci04+bsssci05)/5,2)) %>% 
+  mutate(as=(ms+ss)/2) %>% 
+  select(idcntry,as,idpop,idschool)->bsg7
+
+sss <- rbind(merge(select(acg,disip=acdgdas,order=acbg15e,idcntry,idschool),asg7),
+      merge(select(bcg,disip=bcdgdas,order=bcbg17e,idcntry,idschool),bsg7))
+
+sss %>% filter(!is.na(order),!is.na(disip)) %>% group_by(idcntry,idschool,idpop) %>% 
+  summarise(order=mean(order,na.rm=T),disip=mean(disip,na.rm=T),MS=round(mean(as),2)) ->sss
+
+remove(asg7)+remove(bsg7)
+
+knitr::kable(sss[1:10,])
+```
+
+###7.2 Plotting:
+
+In this plot the changes in a single grade score distribution for different levels of order and calmness is ilustrated. The Xaxis show the grade number, 1 for 4th grade and 2 for 8th grade.
+
+```{r}
+highchart() %>% 
+  hc_add_series_boxplot(filter(sss,disip==1)$MS,filter(sss,disip==1)$idpop,name="Calm and Disciplined Schools") %>% 
+  hc_add_series_boxplot(filter(sss,disip==2)$MS,filter(sss,disip==2)$idpop,name="Average Schools") %>% 
+  hc_add_series_boxplot(filter(sss,disip==3)$MS,filter(sss,disip==3)$idpop,name="Chaotic Schools") %>% 
+  hc_add_theme(hc_theme_smpl()) %>% 
+  hc_title(text="Comparision of score distribution among various school environment ")
+
+```
+
+In the next plot the changes in 4th and 8th grade for each type of school disciplinary is plotted. The Xaxis show the schools disciple, according to the _variable value explanation_ in the data section above.
+
+```{r}
+highchart() %>% 
+  hc_add_series_boxplot(filter(sss,idpop==1)$MS,filter(sss,idpop==1)$disip,name="4th Grade") %>% 
+  hc_add_series_boxplot(filter(sss,idpop==2)$MS,filter(sss,idpop==2)$disip,name="8th Grade") %>% 
+  hc_add_theme(hc_theme_smpl()) %>% 
+  hc_title(text="Comparision of score distribution among students grade") 
+```
+
+###7.3 Numeric Calculations:
+
+We suspect that increasing environment's level of order and discipline, increases the student's progress.
+lets compare the average scores in both grades in different situations.
+
+```{r}
+sss %>% group_by(disip,idpop) %>% summarise(AS=round(mean(MS),2))->ssa
+names(ssa)=c("Level Of Discipline & order","Student's Grade","Average score in math and science")
+knitr::kable(ssa)
+```
+
+###7.4 Hypothesis Testing:
+
+Exactly Similar to the previous question, we're comparing a series of school average scores which is a continues variable, obeying the CLT. Thus, by taking a t-test we can determine the relation between the 4th graders and 8th graders scores, studying in the same type of school, discipline wise.
+
+```{r}
+#highly disciplined
+t.test(filter(sss,disip==1,idpop==2)$MS,filter(sss,disip==1,idpop==1)$MS)
+#average
+t.test(filter(sss,disip==2,idpop==2)$MS,filter(sss,disip==2,idpop==1)$MS)
+#chaotic
+t.test(filter(sss,disip==3,idpop==2)$MS,filter(sss,disip==3,idpop==1)$MS)
+```
+
+###7.5 Analyzing the results:
+
+The results are listed in the table below:
+
+Category             | P-value  | 8th graders' Score|4th grader's Score | Confidence Interval
+-------------------- | -------- | ----------------- | ------------------| -------------------
+Low Level Discipline |$<2.2e-16$| $419.20$          | $389.85$          | $[22, 36]$
+Mid Level Discipline |$0.02$    | $464.93$          | $469.69$          | $[-28, -26]$
+High Level Discipline|$<2.2e-16$| $482.28$          | $499.76$          | $[-20, -14]$
+
+Due to the small amount of p-value in all the categories, $H_0$ is wrong. So let's try to interpret the results using the confidence intervals.
+
+  *1) The progress in student's grade is negative in average highly calm and ordered schools.
+  *2) The progress in student's grade is positive in chaotic and non-disciplined schools.
+  *3) In the same grade however, the better disciplined schools have a higher score. (can be shown with another t-test)
+  *4) In general, we conclude that 4th graders scores are highly effected by their schools. But 8th graders are less effected by their environment. Thus, in chaotic schools students' scores drops and causes this positive progress in this typical type of school. 
+  *5) There is a meaningful correlation between student's progress and their schools discipline, but dispite the statement in the question, _they are not necessarily positivly correlated_, unless we interpret it as a sign of 4th graders being more fragile and delicate to school environment.
+
+***
