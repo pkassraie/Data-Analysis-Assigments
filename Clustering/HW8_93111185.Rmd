@@ -1,0 +1,1051 @@
+---
+title: "HW8"
+author: "Parnian kassraie - 93111185"
+date: "November 30, 2016"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, error = F, message = F, fig.align = "center")
+```
+
+### Preparing the data
+
+```{r}
+library(dplyr)
+library(magrittr)
+library(highcharter)
+
+wdiEc <- read.csv("~/University/5th Semester/Data Analysis/Assignments/HW8/data/wdiEc.csv")
+wdiHe <-read.csv("~/University/5th Semester/Data Analysis/Assignments/HW8/data/wdiHe.csv")
+wdiEd <-read.csv("~/University/5th Semester/Data Analysis/Assignments/HW8/data/wdiEd.csv")
+
+NotCountry <- c("WLD","HIC","OED","ECS","EUU","LMY","MIC","EMU","EAS",
+           "NAC","UMC","EAP","LMC","LCN","ECA","LAC","MEA","ARB",
+           "CEB","MNA","SSF","SSA","LDC","SST","FCS","OSS","HPC",
+           "LIC")
+
+
+filter(wdiEc,!(Country.Code %in% NotCountry)) -> wdiEc
+filter(wdiEd,!(Country.Code %in% NotCountry)) -> wdiEd
+filter(wdiHe,!(Country.Code %in% NotCountry)) -> wdiHe
+```
+
+# I) Economy and Growth 
+
+## 1. Comparing Iran With Other Countries
+
+The following Indicators are compared in the year 2013.
+  
+  * GDP per capita (current US$)/NY.GDP.PCAP.CD
+  
+  * GDP growth (annual %)/ NY.GDP.MKTP.KD.ZG
+  
+  * Inflation, consumer prices (annual %)/FP.CPI.TOTL.ZG
+  
+  * Technical cooperation grants (BoP, current US$)/BX.GRT.TECH.CD.WD
+  
+  * Total debt service (% of exports of goods, services and primary income)/DT.TDS.DECT.EX.ZS
+
+
+```{r}
+Indicators = c("NY.GDP.PCAP.CD","NY.GDP.MKTP.KD.ZG","FP.CPI.TOTL.ZG","BX.GRT.TECH.CD.WD","DT.TDS.DECT.EX.ZS")
+wdiEc %>% filter(Indicator.Code %in% Indicators, !is.na(X2013)) ->EcGr
+  
+```
+
+### A) GDP per capita (current US$)
+
+Iran is Ranked _99_ amongst 212 countries in the world. 
+
+```{r}
+EcGr %>% filter(Indicator.Code == "NY.GDP.PCAP.CD") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "GDP Per Capita (US$)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+### B)GDP growth (annual %)
+
+Iran is Ranked _199_ amongst 212 countries in the world. 
+
+```{r}
+EcGr %>% filter(Indicator.Code == "NY.GDP.MKTP.KD.ZG") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "GDP growth (annual %)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+
+### C) Inflation, consumer prices (annual %)
+
+Iran is Ranked _2_ amongst 212 countries in the world. No Surprise!
+
+```{r}
+EcGr %>% filter(Indicator.Code == "FP.CPI.TOTL.ZG") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Inflation, consumer prices (annual %)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+### D) Technical cooperation grants (BoP, current US$)
+
+Iran is Ranked _53_ amongst 212 countries in the world. 
+
+```{r}
+EcGr %>% filter(Indicator.Code ==  "BX.GRT.TECH.CD.WD") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Technical cooperation grants (BoP, current US$)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+### E) Total debt service (% of exports of goods, services and primary income)
+  
+Iran is Ranked _107_ amongst 212 countries in the world. 
+
+```{r}
+
+EcGr %>% filter(Indicator.Code == "DT.TDS.DECT.EX.ZS") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Total debt service (% of exports of goods, services and primary income)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+
+## 2. Calculating PCAs
+
+We calculate the mean value over the years for each indicator of each country, creating a new dataframe. Then we'll reshape it to calculate the PCs.
+
+
+```{r}
+
+# averaging on all the years
+Values <- rowMeans(wdiEc[,5:60],na.rm = TRUE)
+wdiEc2<- data.frame(wdiEc$Country.Code,wdiEc$Country.Name,wdiEc$Indicator.Code,Values)
+names(wdiEc2) <- c("Country.Code","Country.Name","Indicator.Code","Values")
+
+# reshaping the dataset
+require(tidyr)
+wdiEc2 %>% spread(Indicator.Code,Values)->wdiEc2
+Names = wdiEc2[,1]
+wdiEc2[is.na(wdiEc2)]=0
+row.names(wdiEc2) = wdiEc2$Country.Code
+
+#calculating PCs
+PCmat <- prcomp(wdiEc2[,-c(1,2)], scale. = T, center = T)
+plot(summary(PCmat)$importance[3,], type="l",
+     ylab="%variance explained",
+     xlab="nth component (decreasing order)")
+abline(h=0.8, col="indianred")
+
+```
+
+We'll be keeping 19 PCs, describing about 80% of the data's variance.
+
+```{r}
+
+# choosing first 19 PCs, and showing the feature vector
+chosen.components = 1:19
+feature.vector = PCmat$rotation[,chosen.components]
+
+knitr:: kable(feature.vector[1:10,1:5])
+
+wdiEcomy  = cbind(Country.Code= wdiEc2$Country.Code,Country.Name = wdiEc2$Country.Name,data.frame(PCmat$x))
+
+# Rank according to the first and second PC
+wdiEcomy[,"Ranking1"]= rank(-wdiEcomy$PC1,ties.method = "min")
+wdiEcomy[,"Ranking2"]= rank(-wdiEcomy$PC2,ties.method = "min")
+
+```
+
+Now let's see how the first pc ranks the countries:
+
+```{r}
+IransRank = filter(wdiEcomy,Country.Code=="IRN")$Ranking1
+hchart( wdiEcomy, type = "column", x= Country.Name, y=Ranking1, group = Ranking1) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "PC1") %>%
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1))) %>% 
+  hc_legend(enabled=F)
+```
+
+Iran is ranked _147_ amongst 236 countries. the First countries are weaker (ecomony-wise) compared to the last ones. For example the first country is liberia and the last one is the United states. We can see that the first PC has saved the variance really well.
+
+The first 20 countries according to the second PC are ranked below.
+
+```{r}
+IransRank = filter(wdiEcomy,Country.Code=="IRN")$Ranking2
+
+wdiEcomy = wdiEcomy[order(wdiEcomy$Ranking2),]
+hchart( wdiEcomy[1:20,], type = "column", x= Country.Name[1:20], y=Ranking2[1:20], group = Ranking2[1:20]) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "PC2") %>%
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1))) %>% 
+  hc_legend(enabled=F)
+```
+
+## 3. Clustering the Countries Based on Economical Factors
+
+
+```{r}
+library(cluster)
+library(fpc)
+
+#Clustering on the first 19 pcs
+clus <- kmeans(wdiEcomy[,3:22], centers=5)
+
+clusplot(wdiEcomy[,3:22], clus$cluster, color=TRUE, shade=TRUE, 
+         labels=2, lines=0)
+```
+
+Let's find out about the countires inside each cluster.
+
+```{r}
+k5Clus <- data.frame(clus$cluster)
+k5Clus <- data.frame(rownames(k5Clus),clus$cluster)
+names(k5Clus) <- c("Country.Code","Cluster")
+
+countrynames = select(wdiEc2, Country.Name, Country.Code)
+k5Clus = merge (countrynames, k5Clus, by = "Country.Code")
+
+hchart(k5Clus, type = "column", x=Country.Name, y=Cluster, group = Cluster) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Members of Each Cluster regarding Economy") %>%
+  hc_xAxis(title = list(text = "Country Name")) %>% 
+  hc_yAxis(title = list(text = "Cluster"))
+```
+
+The countries similar to Iran Economical-wise are:
+
+```{r}
+n <- k5Clus$Cluster[which(k5Clus$Country.Code=="IRN")]
+
+k5Clus %>% filter(.,Cluster==n) -> temp
+
+knitr::kable(temp)
+```
+
+## 4. A Linear Model For coutries Growth
+
+we reduce the data to the first PC. 
+I'll define Growth as weighted sum over the indicator differences in two consecutive years, thus, the weight of an indicator becomes it's corresponding value in PC1.
+Note that the weight of each indicator in PC1, somehow show's it's importance in economical state of a country.
+
+Let's see the growth factor explained above for Iran, USA and iceland.
+
+```{r}
+
+wdiEc %>% filter(Country.Code=="IRN") -> IranEc
+IranEc[is.na(IranEc)] <- 0
+wdiEc %>% filter(Country.Code=="ISL") -> IceEc
+IceEc[is.na(IceEc)] <- 0
+wdiEc %>% filter(Country.Code=="USA") -> USEc
+USEc[is.na(USEc)] <- 0
+
+weights <- PCmat$rotation[,1]
+
+IranEc <- (-(weights %*% as.matrix(IranEc[,6:58])) + (weights %*% as.matrix(IranEc[,5:57])))
+USEc <- -(weights %*% as.matrix(USEc[,6:58])) + (weights %*% as.matrix(USEc[,5:57]))
+IceEc <- -(weights %*% as.matrix(IceEc[,6:58])) + (weights %*% as.matrix(IceEc[,5:57]))
+
+
+highchart() %>% 
+  hc_xAxis(categories = 1960:2012) %>% 
+  hc_add_series(name = "IRAN",data = t(IranEc)) %>% 
+  hc_add_series(name = "USA",data = t(USEc)) %>%
+  hc_add_series(name = "Iceland",data = t(IceEc)) %>%
+  hc_title(text = "Economical Growth") %>% 
+  hc_add_theme(hc_theme_economist())
+```
+
+We can see that Iceland's economy has been quite steady. United States has had a fall in 2008 (the housing crisis) and Iran has gotten worse overtime.
+
+Back to the regression model, I'll compute the growth between years 2009-2013, and then test it on years 2013/2014.
+
+```{r}
+#selecting the columns
+EcGrowth0 <- wdiEc[,c(1:4,54:60)]
+EcGrowth0[is.na(EcGrowth0)] <- 0
+numberOfCountries = length(levels(factor(EcGrowth0$Country.Code)))
+
+
+#creating an empty dataset to fill it with growth values later
+EcGrowth1 = matrix(nrow = numberOfCountries,ncol = 8)
+EcGrowth1 = as.data.frame(EcGrowth1)
+colnames(EcGrowth1) <- colnames(EcGrowth0)[c(2,5:11)]
+EcGrowth1[,"Country.Code"] = levels(factor(EcGrowth0$Country.Code))
+  
+
+# calculating the annual growth for each country
+for (i in 1:numberOfCountries) {
+  temp <- filter(EcGrowth0,Country.Code==as.character(levels(factor(wdiEc$Country.Code))[i]))
+  EcGrowth1[i,2:8] <- - weights %*% as.matrix(temp[,5:11])
+}
+
+#fitting the linear model
+EcGrowth1 %>% mutate(Growth = 2*(X2014-X2013)) -> EcGrowth1
+EcGrowth1[is.na(EcGrowth1)] <- 0
+
+EcGrowthFit <- lm(Growth~X2009+X2010+X2011+X2012+X2013,EcGrowth1)
+summary(EcGrowthFit)
+```
+
+Let's predict iran's ranking in 2014/2015 growth factor.
+
+```{r}
+# loading the test data and changing the names so that the years are similar to the model we used
+testdata<- EcGrowth1[,3:7]
+colnames(testdata) <- colnames(EcGrowth1)[2:6]
+
+EcGrowth1 <- data.frame(EcGrowth1,predict(EcGrowthFit,testdata))
+EcGrowth1<- EcGrowth1[order(desc(EcGrowth1$predict.EcGrowthFit..testdata.)),]
+
+which(EcGrowth1$Country.Code=="IRN")
+```
+
+It's the last country. What a surprise.
+
+***
+
+# II) Health
+
+## 1. Comparing Iran With Other Countries
+
+The following Indicators are compared in the year 2013.
+
+  * Number of under-five deaths / SH.DTH.MORT
+  
+  * Adults (ages 15+) newly infected with HIV / SH.HIV.INCD
+  
+  * Health expenditure per capita (current US$) / SH.XPD.PCAP
+  
+  * Population ages 65 and above (% of total) / SP.POP.65UP.TO.ZS
+  
+  * Life expectancy at birth, total (years) / SP.DYN.LE00.IN
+  
+
+
+```{r}
+Indicators = c("SH.DTH.MORT","SH.HIV.INCD","SH.XPD.PCAP","SP.POP.65UP.TO.ZS","SP.DYN.LE00.IN")
+wdiHe %>% filter(Indicator.Code %in% Indicators, !is.na(X2013)) ->Health
+  
+```
+
+### A) Number of under-five deaths
+
+Iran is Ranked _47_ amongst 193 countries in the world. 
+
+```{r}
+Health %>% filter(Indicator.Code == "SH.DTH.MORT") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Number of under-five deaths") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+
+
+```
+
+### B)Adults (ages 15+) newly infected with HIV
+
+Iran is Ranked _33_ amongst 193 countries in the world. 
+
+```{r}
+Health %>% filter(Indicator.Code == "SH.HIV.INCD") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Adults (ages 15+) newly infected with HIV") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+```
+
+  
+### C)Health expenditure per capita (current US$)
+
+Iran is Ranked _96_ amongst 193 countries in the world. 
+
+```{r}
+
+Health %>% filter(Indicator.Code == "SH.XPD.PCAP") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Health expenditure per capita (current US$)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+
+### D)Population ages 65 and above (% of total)
+
+Iran is Ranked _123_ amongst 193 countries in the world. 
+
+```{r}
+Health %>% filter(Indicator.Code == "SP.POP.65UP.TO.ZS") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Population ages 65 and above (% of total)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+```
+
+
+
+### E)Life expectancy at birth, total (years)
+
+Iran is Ranked _75_ amongst 193 countries in the world. 
+
+```{r}
+Health %>% filter(Indicator.Code =="SP.DYN.LE00.IN") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Life expectancy at birth, total (years)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+
+## 2. Calculating PCAs
+
+Similar to the Economics part we have:
+
+```{r}
+# averaging on all the years
+Values <- rowMeans(wdiHe[,5:60],na.rm = TRUE)
+wdiHe2<- data.frame(wdiHe$Country.Code,wdiHe$Country.Name,wdiHe$Indicator.Code,Values)
+names(wdiHe2) <- c("Country.Code","Country.Name","Indicator.Code","Values")
+
+# reshaping the dataset
+require(tidyr)
+wdiHe2 %>% spread(Indicator.Code,Values)->wdiHe2
+Names = wdiHe2[,1]
+wdiHe2[is.na(wdiHe2)]=0
+row.names(wdiHe2) = wdiHe2$Country.Code
+
+#calculating PCs
+PCmatHe <- prcomp(wdiHe2[,-c(1,2)], scale. = T, center = T)
+plot(summary(PCmatHe)$importance[3,], type="l",
+     ylab="%variance explained",
+     xlab="nth component (decreasing order)")
+abline(h=0.8, col="indianred")
+
+```
+
+We'll be keeping 16 PCs, describing about 80% of the data's variance.
+
+```{r}
+
+# choosing first 16 PCs, and showing the feature vector
+chosen.components = 1:16
+feature.vector = PCmatHe$rotation[,chosen.components]
+
+knitr:: kable(feature.vector[1:10,1:10])
+
+wdiHealth  = cbind(Country.Code= wdiHe2$Country.Code,Country.Name = wdiHe2$Country.Name,data.frame(PCmatHe$x))
+
+# Rank according to the first and second PC
+wdiHealth[,"Ranking1"]= rank(-wdiHealth$PC1,ties.method = "min")
+wdiHealth[,"Ranking2"]= rank(-wdiHealth$PC2,ties.method = "min")
+
+```
+
+Now let's see how the first pc ranks the countries:
+
+```{r}
+IransRank = filter(wdiHealth,Country.Code=="IRN")$Ranking1
+hchart( wdiHealth, type = "column", x= Country.Name, y=Ranking1, group = Ranking1) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "PC1") %>%
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1))) %>% 
+  hc_legend(enabled=F)
+```
+
+Iran is ranked _109_ amongst 236 countries. This is really amazing, almost all of the first countries are located in africa and are in a bad hygenic situation compared to the last ones which are well developed rich countries such as switzerland and sweden. This shows that the first PC has saved the variance really well.
+
+The first 20 countries according to the second PC are ranked below.
+
+```{r}
+IransRank = filter(wdiHealth,Country.Code=="IRN")$Ranking2
+
+wdiHealth = wdiHealth[order(wdiHealth$Ranking2),]
+hchart( wdiHealth[1:20,], type = "column", x= Country.Name[1:20], y=Ranking2[1:20], group = Ranking2[1:20]) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "PC2") %>%
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1))) %>% 
+  hc_legend(enabled=F)
+```
+
+
+## 3. Clustering the Countries Based on Health Factors
+
+```{r}
+library(cluster)
+library(fpc)
+
+#Clustering on the first 16 pcs
+clus <- kmeans(wdiHealth[,3:19], centers=5)
+
+clusplot(wdiHealth[,3:22], clus$cluster, color=TRUE, shade=TRUE, 
+         labels=2, lines=0)
+```
+
+Let's find out about the countires inside each cluster. This is just amazing! One of the clusters consists of only african countries!
+
+```{r}
+k5Clus <- data.frame(clus$cluster)
+k5Clus <- data.frame(rownames(k5Clus),clus$cluster)
+names(k5Clus) <- c("Country.Code","Cluster")
+
+countrynames = select(wdiHe2, Country.Name, Country.Code)
+k5Clus = merge (countrynames, k5Clus, by = "Country.Code")
+
+hchart(k5Clus, type = "column", x=Country.Name, y=Cluster, group = Cluster) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Members of Each Cluster Regardin Health") %>%
+  hc_xAxis(title = list(text = "Country Name")) %>% 
+  hc_yAxis(title = list(text = "Cluster"))
+```
+
+The countries similar to Iran Health-wise are:
+
+```{r}
+n <- k5Clus$Cluster[which(k5Clus$Country.Code=="IRN")]
+
+k5Clus %>% filter(.,Cluster==n) -> temp
+
+knitr::kable(temp[1:10,])
+```
+
+
+## 4. A Linear Model For coutries Growth
+
+
+we reduce the data to the first PC. 
+Growth factor is similar to what was defined before.
+Let's see the growth factor explained above for Iran, USA and iceland.
+
+```{r}
+
+wdiHe %>% filter(Country.Code=="IRN") -> IranHe
+IranHe[is.na(IranHe)] <- 0
+wdiHe %>% filter(Country.Code=="ISL") -> IceHe
+IceHe[is.na(IceHe)] <- 0
+wdiHe %>% filter(Country.Code=="USA") -> USHe
+USHe[is.na(USHe)] <- 0
+
+weights <- PCmatHe$rotation[,1]
+
+IranHe <- (-(weights %*% as.matrix(IranHe[,6:58])) + (weights %*% as.matrix(IranHe[,5:57])))
+USHe <- -(weights %*% as.matrix(USHe[,6:58])) + (weights %*% as.matrix(USHe[,5:57]))
+IceHe <- -(weights %*% as.matrix(IceHe[,6:58])) + (weights %*% as.matrix(IceHe[,5:57]))
+
+
+highchart() %>% 
+  hc_xAxis(categories = 1960:2012) %>% 
+  hc_add_series(name = "IRAN",data = t(IranHe)) %>% 
+  hc_add_series(name = "USA",data = t(USHe)) %>%
+  hc_add_series(name = "Iceland",data = t(IceHe)) %>%
+  hc_title(text = "Health Growth") %>% 
+  hc_add_theme(hc_theme_economist())
+```
+
+Again, Iceland is an steady (and beautiful country), United States Health growth oscillates and apparently Iran has been getting better in the last couple of years.
+
+Back to the regression model, I'll compute the growth between years 2009-2013, and then test it on years 2013/2014.
+
+```{r}
+#selecting the columns
+HeGrowth0 <- wdiHe[,c(1:4,54:60)]
+HeGrowth0[is.na(HeGrowth0)] <- 0
+numberOfCountries = length(levels(factor(HeGrowth0$Country.Code)))
+
+
+#creating an empty dataset to fill it with growth values later
+HeGrowth1 = matrix(nrow = numberOfCountries,ncol = 8)
+HeGrowth1 = as.data.frame(HeGrowth1)
+colnames(HeGrowth1) <- colnames(HeGrowth0)[c(2,5:11)]
+HeGrowth1[,"Country.Code"] = levels(factor(HeGrowth0$Country.Code))
+  
+
+# calculating the annual growth for each country
+for (i in 1:numberOfCountries) {
+  temp <- filter(HeGrowth0,Country.Code==as.character(levels(factor(wdiHe$Country.Code))[i]))
+  HeGrowth1[i,2:8] <- - weights %*% as.matrix(temp[,5:11])
+}
+
+#fitting the linear model
+HeGrowth1 %>% mutate(Growth = 2*(X2014-X2013)) -> HeGrowth1
+HeGrowth1[is.na(HeGrowth1)] <- 0
+
+EcGrowthFit <- lm(Growth~X2009+X2010+X2011+X2012+X2013,HeGrowth1)
+summary(EcGrowthFit)
+```
+
+Let's predict iran's ranking in 2014/2015 growth factor.
+
+```{r}
+# loading the test data and changing the names so that the years are similar to the model we used
+testdata<- HeGrowth1[,3:7]
+colnames(testdata) <- colnames(HeGrowth1)[2:6]
+
+HeGrowth1 <- data.frame(HeGrowth1,predict(EcGrowthFit,testdata))
+HeGrowth1<- HeGrowth1[order(desc(HeGrowth1$predict.EcGrowthFit..testdata.)),]
+
+which(HeGrowth1$Country.Code=="IRN")
+```
+
+Iran is ranked _120_ amongst 236 countries. The first and last countries are _Bangladesh_ and _USA_!
+
+
+***
+
+# III) Education
+
+## 1. Comparing Iran With Other Countries
+
+  * Youth literacy rate, population 15-24 years, both sexes / SE.ADT.1524.LT.ZS
+  * Duration of compulsory education (years) / SE.COM.DURS
+  * Net enrolment rate, primary, both sexes (%) / SE.PRM.NENR
+  * Government expenditure on education, total (% of GDP) / SE.XPD.TOTL.GD.ZS
+  * Unemployment, total (% of total labor force) / SL.UEM.TOTL.ZS
+  
+
+```{r}
+Indicators = c("SE.ADT.1524.LT.ZS","SE.COM.DURS","SE.PRM.NENR","SE.XPD.TOTL.GD.ZS","SL.UEM.TOTL.ZS")
+wdiEd %>% filter(Indicator.Code %in% Indicators, !is.na(X2013)) ->Education
+  
+```
+
+  
+### A)Youth literacy rate, population 15-24 years, both sexes
+
+Iran is Ranked _18_ amongst 193 countries in the world. 
+
+```{r}
+
+Education %>% filter(Indicator.Code == "SE.ADT.1524.LT.ZS") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Youth literacy rate, population 15-24 years, both sexes") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+
+### B)Duration of compulsory education (years)
+
+Iran is Ranked _159_ amongst 193 countries in the world. 
+
+```{r}
+
+Education %>% filter(Indicator.Code == "SE.COM.DURS") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Duration of compulsory education (years)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+
+### C)Net enrolment rate, primary, both sexes (%)
+
+Iran is Ranked _15_ amongst 193 countries in the world. 
+
+```{r}
+
+Education %>% filter(Indicator.Code == "SE.PRM.NENR") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Net enrolment rate, primary, both sexes (%)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+
+### D)Government expenditure on education, total (% of GDP)
+
+Iran is Ranked _64_ amongst 193 countries in the world. 
+
+```{r}
+
+Education %>% filter(Indicator.Code == "SE.XPD.TOTL.GD.ZS") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Government expenditure on education, total (% of GDP)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+### E) Unemployment, total (% of total labor force)
+
+Iran is Ranked _35_ amongst 193 countries in the world. 
+
+```{r}
+
+Education %>% filter(Indicator.Code == "SL.UEM.TOTL.ZS") %>% select(Country.Name,Country.Code,X2013)-> plot1
+plot1[,"Ranking"] = rank(-plot1$X2013,ties.method = "min")
+IransRank = filter(plot1,Country.Code=="IRN")$Ranking
+hchart( plot1,type = "column", x= Country.Name, y=Ranking, group = Ranking) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Unemployment, total (% of total labor force)") %>% 
+  hc_legend(enabled=F) %>% 
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1)))
+
+```
+
+
+## 2. Calculating PCAs
+
+Similar to the Economics part we have:
+
+```{r}
+
+# averaging on all the years
+Values <- rowMeans(wdiEd[,5:60],na.rm = TRUE)
+wdiEd2<- data.frame(wdiEd$Country.Code,wdiEd$Country.Name,wdiEd$Indicator.Code,Values)
+names(wdiEd2) <- c("Country.Code","Country.Name","Indicator.Code","Values")
+
+# reshaping the dataset
+require(tidyr)
+wdiEd2 %>% spread(Indicator.Code,Values)->wdiEd2
+Names = wdiEd2[,1]
+wdiEd2[is.na(wdiEd2)]=0
+row.names(wdiEd2) = wdiEd2$Country.Code
+
+#calculating PCs
+PCmatEd <- prcomp(wdiEd2[,-c(1,2)], scale. = T, center = T)
+plot(summary(PCmatEd)$importance[3,], type="l",
+     ylab="%variance explained",
+     xlab="nth component (decreasing order)")
+abline(h=0.8, col="indianred")
+
+```
+
+We'll be keeping 18 PCs, describing about 80% of the data's variance.
+
+```{r}
+
+# choosing first 18 PCs, and showing the feature vector
+chosen.components = 1:18
+feature.vector = PCmatEd$rotation[,chosen.components]
+
+knitr:: kable(feature.vector[1:10,1:10])
+
+wdiEducate  = cbind(Country.Code= wdiEd2$Country.Code,Country.Name = wdiEd2$Country.Name,data.frame(PCmatEd$x))
+
+# Rank according to the first and second PC
+wdiEducate[,"Ranking1"]= rank(-wdiEducate$PC1,ties.method = "min")
+wdiEducate[,"Ranking2"]= rank(-wdiEducate$PC2,ties.method = "min")
+
+```
+
+Now let's see how the first pc ranks the countries:
+
+```{r}
+IransRank = filter(wdiEducate,Country.Code=="IRN")$Ranking1
+hchart( wdiEducate, type = "column", x= Country.Name, y=Ranking1, group = Ranking1) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "PC1") %>%
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1))) %>% 
+  hc_legend(enabled=F)
+```
+
+Iran is ranked _150_ amongst 236 countries. the First countries are rather small countries and the last ones are almost all europian. my guess is that this ranking has to do something with the school systems.
+
+The first 20 countries according to the second PC are ranked below.
+
+```{r}
+IransRank = filter(wdiEducate,Country.Code=="IRN")$Ranking2
+
+wdiEducate = wdiEducate[order(wdiEducate$Ranking2),]
+hchart( wdiEducate[1:20,], type = "column", x= Country.Name[1:20], y=Ranking2[1:20], group = Ranking2[1:20]) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "PC2") %>%
+  hc_xAxis(title = list(text = "Country Name"),
+           plotLines = list(
+             list(label = list(text = "Iran"),
+                  color = "#1f618d",
+                  width = 2,
+                  value = IransRank-1))) %>% 
+  hc_legend(enabled=F)
+```
+
+
+## 3. Clustering the Countries Based on Educational Factors
+
+
+```{r}
+library(cluster)
+library(fpc)
+
+#Clustering on the first 18 pcs
+clus <- kmeans(wdiEducate[,3:21], centers=5)
+
+clusplot(wdiEducate[,3:22], clus$cluster, color=TRUE, shade=TRUE, 
+         labels=2, lines=0)
+```
+
+Let's find out about the countires inside each cluster.
+
+```{r}
+k5Clus <- data.frame(clus$cluster)
+k5Clus <- data.frame(rownames(k5Clus),clus$cluster)
+names(k5Clus) <- c("Country.Code","Cluster")
+
+countrynames = select(wdiEd2, Country.Name, Country.Code)
+k5Clus = merge (countrynames, k5Clus, by = "Country.Code")
+
+hchart(k5Clus, type = "column", x=Country.Name, y=Cluster, group = Cluster) %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Members of Each Cluster Regarding Education") %>%
+  hc_xAxis(title = list(text = "Country Name")) %>% 
+  hc_yAxis(title = list(text = "Cluster"))
+```
+
+The countries similar to Iran Education-wise are:
+
+```{r}
+n <- k5Clus$Cluster[which(k5Clus$Country.Code=="IRN")]
+
+k5Clus %>% filter(.,Cluster==n) -> temp
+
+knitr::kable(temp[1:10,])
+```
+
+
+## 4. A Linear Model For coutries Growth
+
+
+we reduce the data to the first PC. 
+Growth factor is similar to what was defined before.
+Let's see the growth factor explained above for Iran, USA and iceland.
+
+```{r}
+
+wdiEd %>% filter(Country.Code=="IRN") -> IranEd
+IranEd[is.na(IranEd)] <- 0
+wdiEd %>% filter(Country.Code=="ISL") -> IceEd
+IceEd[is.na(IceEd)] <- 0
+wdiEd %>% filter(Country.Code=="USA") -> USEd
+USEd[is.na(USEd)] <- 0
+
+weights <- PCmatEd$rotation[,1]
+
+IranEd <- (-(weights %*% as.matrix(IranEd[,6:58])) + (weights %*% as.matrix(IranEd[,5:57])))
+USEd <- -(weights %*% as.matrix(USEd[,6:58])) + (weights %*% as.matrix(USEd[,5:57]))
+IceEd <- -(weights %*% as.matrix(IceEd[,6:58])) + (weights %*% as.matrix(IceEd[,5:57]))
+
+
+highchart() %>% 
+  hc_xAxis(categories = 1960:2012) %>% 
+  hc_add_series(name = "IRAN",data = t(IranEd)) %>% 
+  hc_add_series(name = "USA",data = t(USEd)) %>%
+  hc_add_series(name = "Iceland",data = t(IceEd)) %>%
+  hc_title(text = "Education Growth") %>% 
+  hc_add_theme(hc_theme_economist())
+```
+
+As always, Iceland's situation is amaizgly steady.
+Iran has had a drop in year 1989 which is 1368 in our calendar that can be explained by the "Imposed Wars" being started.
+In the last couple of years we don't see that much progress in educational growth of these countries.
+
+Back to the regression model, I'll compute the growth between years 2009-2013, and then test it on years 2013/2014.
+
+```{r}
+#selecting the columns
+EdGrowth0 <- wdiEd[,c(1:4,54:60)]
+EdGrowth0[is.na(EdGrowth0)] <- 0
+numberOfCountries = length(levels(factor(EdGrowth0$Country.Code)))
+
+
+#creating an empty dataset to fill it with growth values later
+EdGrowth1 = matrix(nrow = numberOfCountries,ncol = 8)
+EdGrowth1 = as.data.frame(EdGrowth1)
+colnames(EdGrowth1) <- colnames(EdGrowth0)[c(2,5:11)]
+EdGrowth1[,"Country.Code"] = levels(factor(EdGrowth0$Country.Code))
+  
+
+# calculating the annual growth for each country
+for (i in 1:numberOfCountries) {
+  temp <- filter(EdGrowth0,Country.Code==as.character(levels(factor(wdiEd$Country.Code))[i]))
+  EdGrowth1[i,2:8] <- - weights %*% as.matrix(temp[,5:11])
+}
+
+#fitting the linear model
+EdGrowth1 %>% mutate(Growth = 2*(X2014-X2013)) -> EdGrowth1
+EdGrowth1[is.na(EdGrowth1)] <- 0
+
+EdGrowthFit <- lm(Growth~X2009+X2010+X2011+X2012+X2013,EdGrowth1)
+summary(EdGrowthFit)
+```
+
+Let's predict iran's ranking in 2014/2015 growth factor.
+
+```{r}
+# loading the test data and changing the names so that the years are similar to the model we used
+testdata<- EdGrowth1[,3:7]
+colnames(testdata) <- colnames(EdGrowth1)[2:6]
+
+EdGrowth1 <- data.frame(EdGrowth1,predict(EdGrowthFit,testdata))
+EdGrowth1<- EdGrowth1[order(desc(EdGrowth1$predict.EdGrowthFit..testdata.)),]
+
+which(EdGrowth1$Country.Code=="IRN")
+```
+
+It's the 28th Country, Great news!
+
+
