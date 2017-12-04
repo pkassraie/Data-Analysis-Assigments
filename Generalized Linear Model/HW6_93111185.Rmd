@@ -1,0 +1,428 @@
+---
+title: "HW7"
+author: "Parnian kassraie - 93111185"
+date: "November 18, 2016"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = F,message = F,warning = F,fig.align = "center",fig.width = 10)
+```
+
+```{r}
+library(dplyr)
+library(highcharter)
+library(magrittr)
+library(mosaic)
+library(ggplot2)
+library(psych)
+library(tidyr)
+
+death = read.csv("data/murder_suicide.csv")
+```
+
+## 1. Ploting The Variables
+
+There are two ScatterPlot Matrices plotted below.
+
+First one tries to show some relation between the Manner of Death and the Condition of death, such as the deceased activity, place of death, cause of death and so on.
+
+Second one is plotted to show the relation between the personal information of the deceased and the manner of death.
+
+```{r,eval = F}
+
+#Preparing the Data
+death %>% filter(PlaceOfInjury<9) %>% 
+  filter(ActivityCode<9)->test
+
+require(car)
+# Scatterplot Matrices
+scatterplotMatrix(~MannerOfDeath+ActivityCode+PlaceOfInjury+Icd10Code+InjuryAtWork+Aut, data=test,
+                  spread=FALSE,
+                  main="Manner, Activity, Place, Cause")
+
+death %>%  filter(AgeRecode27<27,Education2003Revision<9,MaritalStatus != "U") ->test
+scatterplotMatrix(~MannerOfDeath+AgeRecode27+Education2003Revision+Sex+MaritalStatus,data = test,
+                  spread = F,
+                  main = "Manner, Age, Education, Gender, Marital Status")
+
+```
+
+## 2. Cross Correlation Plots
+
+Couple of the variables, such as flag variables are removed for the correlation to be taken over meaningful ones.
+
+```{r,fig.width=16, fig.height=16}
+require(corrplot)
+
+death$MaritalStatus=as.integer(death$MaritalStatus)
+death$Sex = as.integer(death$Sex)
+death$Autopsy = as.integer(death$Autopsy)
+death$InjuryAtWork = as.integer(death$InjuryAtWork)
+death$Icd10Code = as.integer(death$Icd10Code)
+
+
+M=cor(death[c(2,4,6:9,11:17,19,20,22:29,32,35:38)])
+corrplot(M,order = "AOE")
+```
+
+We can see that the Age recodes and cause recodes are highly correlated.
+It is quite interesting to see that the place of injury and the deceased activity code are highly correlated as well!
+
+```{r,fig.width=16, fig.height=16}
+death2 = death[-c(3,5,8,9,10,11,12,14,18,21,23,26,27,28,29,30,31,33,34,35,36,37,38)]
+M = cor(death2)
+corrplot(M,order = "AOE")
+```
+
+## 3. Effect of Race, Gender, Education, Age on Manner Of Death
+
+### Race
+
+Since the majority of american citizens are either white or black, Most cases of homicide or suicide belong to the white people.
+
+```{r}
+death2 = death[-c(3,5,8,9,10,11,12,14,18,21,23,26,27,28,29,30,31,33,34,35,36,37,38)]
+Race <- read.csv("data/Race.csv")
+
+death2<- merge(death2,by.x = "Race",Race,by.y = "Code")
+drops <- c("Race")
+death2 <- death2[ , !(names(death2) %in% drops)]
+colnames(death2)[15] <- "Race"
+
+death2 %>% group_by(MannerOfDeath,Race) %>% 
+  summarise(count = n())->death3
+N_s=sum(filter(death3,MannerOfDeath==2)$count)
+N_h=sum(filter(death3,MannerOfDeath==3)$count)
+death3 %>% mutate(percentage = ifelse(MannerOfDeath==2,count/N_s,count/N_h)) %>% 
+  mutate(Death = ifelse(MannerOfDeath==2,"Suicide","Homicide"))->death3
+
+hchart(death3,"column",x=Race,y = percentage, group = Death) %>% 
+  hc_add_theme(hc_theme_economist())
+```
+
+The difference between Suicide rate is so high that taking a statistical test seems redundant. But let's see if there's a significant difference between number of homicide victims between black and white races.
+
+Manner of Death is an ordinal variable, so we'll be taking a wilcoxon test as follows.
+
+$H_0$: The Number of Homicide Victims is the same between Black and white races.
+
+```{r}
+death3 <- filter(death2, Race %in% c("White","Black"),MannerOfDeath == 3)
+wilcox.test(as.integer(death3$Race))
+```
+
+Thus, The null hypothesis is rejected and we conclude that:
+
+* The Suicide is more common amongst white people, how ever, african americans are the majority of homicide victims.
+
+### Gender
+
+It can be seen that both most of the people who commit suicide and most of the homicide victims are men.
+
+```{r}
+death2 %>% group_by(MannerOfDeath,Sex) %>% 
+  summarise(count = n())->death3
+N_s=sum(filter(death3,MannerOfDeath==2)$count)
+N_h=sum(filter(death3,MannerOfDeath==3)$count)
+death3 %>% mutate(percentage = ifelse(MannerOfDeath==2,count/N_s,count/N_h)) %>% 
+  mutate(Death = ifelse(MannerOfDeath==2,"Suicide","Homicide")) %>% 
+  mutate(Gender = ifelse(Sex==1,"Female","Male"))->death3
+
+hchart(death3,"column",x=Gender ,y = percentage, group = Death) %>% 
+  hc_add_theme(hc_theme_economist())
+```
+
+The difference between Genders is highly significant, but we'll take a test anyways.
+
+Manner of Death and gender are both ordinal variable, so we'll be taking a chi-squared test as follows.
+
+$H_0$: Manner of Death is independant of Gender.
+
+```{r}
+tbl <- table(death2$MannerOfDeath,death2$Sex)
+tbl
+chisq.test(tbl)
+```
+
+the independence hypothesis is rejected and thus, It matter's whether the deceased is a Female or a Male.
+
+
+### Education
+
+Each bar in the plot below, show's the percentage of that Educational group in either homicide stats or suicide.
+
+```{r}
+Edu <- read.csv("data/Education2003Revision.csv")
+
+death2<- merge(death2,by.x = "Education2003Revision",Edu,by.y = "Code")
+drops <- c("Education2003Revision")
+death2 <- death2[ , !(names(death2) %in% drops)]
+colnames(death2)[15] <- "Education"
+
+death2 %>% group_by(MannerOfDeath,Education) %>% 
+  summarise(count = n())->death3
+N_s=sum(filter(death3,MannerOfDeath==2)$count)
+N_h=sum(filter(death3,MannerOfDeath==3)$count)
+death3 %>% mutate(percentage = ifelse(MannerOfDeath==2,count/N_s,count/N_h)) %>% 
+  mutate(Death = ifelse(MannerOfDeath==2,"Suicide","Homicide"))->death3
+
+hchart(death3,"column",x=Education,y = percentage, group = Death) %>% 
+  hc_add_theme(hc_theme_economist())
+```
+
+Similar to Gender, we'll check whether Manner of death is independent from Education.
+
+```{r}
+tbl <- table(death2$MannerOfDeath,death2$Education)
+tbl
+chisq.test(tbl)
+```
+
+Thus, There is a significant difference between the number of deceased people from each of these Educational Levels.
+
+### Age
+
+In the Plot Below it can be seen the what percentage of suicide rates or homicide rates belongs to each age interval. For example, about 25% of the homicide victims belong to the age band 15-24. 
+
+```{r}
+Age <- read.csv("data/AgeRecode12.csv")
+
+death2<- merge(death2,by.x = "AgeRecode12",Age,by.y = "Code")
+drops <- c("AgeRecode12")
+death2 <- death2[ , !(names(death2) %in% drops)]
+colnames(death2)[15] <- "Age"
+
+death2 %>% group_by(MannerOfDeath,Age) %>% 
+  summarise(count = n())->death3
+N_s=sum(filter(death3,MannerOfDeath==2)$count)
+N_h=sum(filter(death3,MannerOfDeath==3)$count)
+death3 %>% mutate(percentage = ifelse(MannerOfDeath==2,count/N_s,count/N_h)) %>% 
+  mutate(Death = ifelse(MannerOfDeath==2,"Suicide","Homicide"))->death3
+
+hchart(death3,"column",x=Age,y = percentage, group = Death) %>% 
+  hc_add_theme(hc_theme_economist())
+```
+
+Manner of Death and age band are both ordinal variable, so we'll be taking a chi-squared test as follows.
+
+$H_0$: Manner of Death is independant of Age band.
+
+```{r}
+tbl <- table(death2$MannerOfDeath,death2$Age)
+tbl
+chisq.test(tbl)
+```
+
+the independence hypothesis is rejected and thus, The age of the deceased matters.
+
+## 4. Logistic Regression
+
+The column **Predicted** shows the probability of MannerOfDeath being equal to 1, meaning that the cause of death is homicide.
+
+The column **Compare** shows whether the prediction and the actual result are the same.
+
+In the code below, we test the model for 10 different training/testing pairs, and the average of their accuracy rate is later taken as the Accuracy rate of the model.
+
+```{r}
+
+#Separating training and test data:
+
+death2 = death[-c(3,5,8,9,10,11,12,14,18,21,23,26,27,28,29,30,31,33,34,35,36,37,38)]
+death2 %>% mutate(MannerOfDeath = ifelse(MannerOfDeath==2, 0,1))->death2
+
+accuracyrate = double()
+
+for (i in 1:10){
+Y = shuffle(death2$Id,replace = F)
+Tr = Y[1:round(length(Y)/5)]
+Te = Y[round(length(Y)/5)+1:length(Y)]
+training <- filter(death2, Id %in% Tr)
+testing <- filter(death2, Id %in% Te )
+
+
+#Applying a logistic model on the training data:
+fit <- glm(MannerOfDeath~., family = binomial(link = "logit"), training)
+
+#Removing the variables with the same meaning:
+
+fit2 <- glm(MannerOfDeath~.-Race-InjuryAtWork,family = "binomial",training)
+
+
+#applying on test data and calculating the error:
+
+
+testing[,"predicted"] <- predict(fit2,newdata = testing , type = "response")
+
+
+testing %>% mutate(Result = ifelse(predicted>0.5, "Homicide","Suicide")) %>% 
+  mutate(MannerOfDeath = ifelse(MannerOfDeath == "0", "Suicide","Homicide"))->testing
+
+# Now let's calculate the accuracy rate.
+testing %>% mutate( Compare = ifelse(MannerOfDeath==Result , 1, 0))->testing
+accuracyrate[i] = round(sum(testing$Compare)/length(testing$Compare),4)*100
+
+}
+
+AccuracyRate = round(mean(accuracyrate),2)
+```
+
+The classifier can classify the data with a $98.56%$ accuracy rate!
+Here's the summary of the model:
+
+```{r}
+summary(fit2)
+```
+
+
+## 5. Comparing the Results
+
+For each death Id, we have ploted the 
+```{r}
+testing %>% gather("Outcome","Manner",c(11,17))->ploting
+
+ploting = ploting[order(ploting$Id),]
+ploting = ploting[1:100,]
+ggplot(ploting,aes(x=ploting$Id,y=ploting$Manner,color=ploting$Outcome)) +
+  geom_point(position = "jitter",size=rel(2))+
+  scale_color_brewer(palette = "Set3",name ="Point type")+
+  labs(x="Death Id",y="Cause",title="Comparing the prediction and real cause for a 100 death cases")
+
+testing %>% mutate(Compare = ifelse(Compare=="0", "Correct","False"))->testing
+ggplot(testing,aes(testing$MannerOfDeath,testing$Result,color = testing$Compare))+
+  geom_point(position="jitter")+
+  scale_color_manual(values = c("Indianred1","Royalblue"),name="Prediction")+
+  labs(x="Reason of Death",y="Prediction",title="Comparing the prediction and real cause for all points")
+```
+
+
+## 6. Maximal Model
+
+#### Step 1: Preparing the test and training data:
+
+We should make sure that we're removing all the columns with the same meaning as _Manner Of Death_ such as CauseRecode Variables, since they restate the cause of death.
+
+```{r}
+#preparing test and training Data
+death2 = death[-c(3,5,8,9,10,11,12,14,18,21,23,26,27,28,29,30,31,33,34,35,36,37,38)]
+death2 %>% mutate(MannerOfDeath = ifelse(MannerOfDeath==2, 0,1))->death2
+
+Y = shuffle(death2$Id,replace = F)
+Tr = Y[1:round(length(Y)/5)]
+Te = Y[round(length(Y)/5)+1:length(Y)]
+training <- filter(death2, Id %in% Tr)
+testing <- filter(death2, Id %in% Te )
+```
+
+#### Step 2: Creating the Subsets:
+
+Since there are 
+```{r}
+Cols = colnames(death2)
+Cols = Cols[3:15]
+X=1:13
+func <- function(x){
+  return(combn(Cols,x))
+}
+list = lapply(X,func)
+```
+
+list includes all the subsets of Predictor variables, where _list[i]_ includes the all subsets with i members.
+There are $2^13$ subsets in list, we'll only iterate over a 13 of them.
+
+#### Step 3: Creating the function that calculates accuracyrate:
+
+```{r}
+AccRate <- function(vec){
+  
+b <- paste(vec, collapse =" + ")
+f<- paste("MannerOfDeath ~ ",b,sep = "")
+fitMaximal <- glm(as.formula(f),training,family ="binomial")
+
+testing[,"predicted"] <- predict(fitMaximal,newdata = testing , type = "response")
+
+testing %>% mutate(Result = ifelse(predicted>0.5, "Homicide","Suicide")) %>% 
+  mutate(MannerOfDeath = ifelse(MannerOfDeath == "0", "Suicide","Homicide"))->testing
+
+# Now let's calculate the accuracy rate.
+testing %>% mutate( Compare = ifelse(MannerOfDeath==Result , 1, 0))->testing
+accuracyrate = round(sum(testing$Compare)/length(testing$Compare),4)*100
+return(accuracyrate)
+}
+```
+
+#### Step 4: applying the function to some selected subsets:
+
+The following code iterates over all the subsets and returns their Accuracy Rate, However, it will take about 2-3 hour to run.
+
+```{r,eval=F}
+I = 1:length(list)
+
+  for (i in I){
+    End = factorial(length(list))/(factorial(13-i)*factorial(i))
+    for(j in 1:End){
+      vec = list[[i]][,j]
+      AccRate(vec)
+    }
+  }
+```
+
+instead, I'll run the code over 65 random subsets with different sizes:
+
+```{r}
+
+AR = matrix(nrow = 5,ncol = 13)
+Vec = matrix(nrow = 5,ncol = 13)
+I = 1:length(list)
+for (i in I){
+  End = factorial(length(list))/(factorial(13-i)*factorial(i))
+  J <- round(runif(5, 1, End))
+  ind = 1
+  for(j in J){
+  vec = list[[i]][,j]
+  AR[ind,i] = AccRate(vec)
+  #Vec[ind,i] = f
+  ind=ind+1
+    }
+}
+
+AR
+
+```
+
+it can be seen that the sets includeing the "Icd10Code" Column have higher accuracy rates.
+
+#### Step 5: Finding the Maximal Model
+
+after running the algorithm above a couple of times, i derived the formula used below.
+
+```{r}
+f="MannerOfDeath~Education2003Revision+Sex+AgeRecode12+MaritalStatus+Icd10Code+PlaceOfInjury+Race+PlaceOfDeathAndDecedentsStatus"
+fitMaximal <- glm(as.formula(f),training,family = "binomial")
+summary(fitMaximal)
+
+testing[,"predicted"] <- predict(fitMaximal,newdata = testing , type = "response")
+
+testing %>% mutate(Result = ifelse(predicted>0.5, "Homicide","Suicide")) %>% 
+  mutate(MannerOfDeath = ifelse(MannerOfDeath == "0", "Suicide","Homicide"))->testing
+
+# Now let's calculate the accuracy rate.
+testing %>% mutate( Compare = ifelse(MannerOfDeath==Result , 1, 0))->testing
+accuracyrate = round(sum(testing$Compare)/length(testing$Compare),4)*100
+
+testing %>% mutate(Compare = ifelse(Compare=="0", "Correct","False"))->testing
+ggplot(testing,aes(testing$MannerOfDeath,testing$Result,color = testing$Compare))+
+  geom_point(position="jitter")+
+  scale_color_manual(values = c("Indianred1","Royalblue"),name="Prediction")+
+  labs(x="Reason of Death",y="Prediction",title="Comparing the prediction and real cause for all points")
+
+
+```
+
+
+## 7. Two New Methods for Prediction
+
+I did not understand this part.
