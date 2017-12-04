@@ -1,0 +1,277 @@
+---
+title: "HW7"
+author: "Svartha"
+date: "November 9, 2016"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message = F, error = F, warning = F, fig.align = 'center')
+```
+
+```{r}
+library(highcharter)
+library(dplyr)
+library(mosaic)
+library(magrittr)
+library(readxl)
+library(psych)
+library(tidyr)
+```
+
+```{r}
+#reading the data
+data <- read.csv("data/sp500hst.txt", header=FALSE)
+names(data)<-c("day","symbol","open","high","low","close","volume")
+
+cf<-read.csv("data/constituents-financials.csv")
+
+cf %>% select(symbol = Symbol,Name,Sector)->names
+data <- merge(names,data)
+
+sp <-read_excel("data/SP500index.xls")
+sp$DATE=as.character(sp$DATE)
+```
+
+**First two questions are not answered in order**
+
+## Buying Stock on Mondays
+
+We have to add a column to the data indicating the weekday.
+
+```{r}
+data %>% mutate(avrg = round((open+close+high+low)/4,2)) ->data
+
+data %>%
+  mutate(y = round(day/10000)) %>% 
+  mutate(m = round((day-10000*y)/100)) %>% 
+  mutate(d = day-10000*y-100*m) %>% 
+  mutate(DATE = ifelse(m<10, ifelse(d<10, paste0(y,'-0',m,'-0',d), paste0(y,'-0',m,'-',d)),
+                       ifelse(d<10, paste0(y,'-',m,'-0',d),paste0(y,'-',m,'-',d))))%>% 
+  mutate(weekday = weekdays(as.Date(DATE)))->data
+
+```
+
+Now lets run an ANOVA test to see if these days have any significant differenc.
+
+**$H_0$ : All the Weekdays are similar**
+**$H_1$ : Some days, the stock price of companies is higher than other days**
+
+```{r}
+days <- aov(data$avrg~factor(data$weekday))
+summary(days)
+```
+
+Thus, There's no significant difference between the average stock prices in different days of the week. 
+
+```{r}
+highchart() %>% 
+  hc_add_series_boxplot(data$avrg,by = data$weekday , name = "Stock Price") %>% 
+  hc_add_theme(hc_theme_538()) %>% 
+  hc_title(text = "Comparision of stock price distribution within weekdays")
+```
+
+
+## Most Efficient Company
+
+I define Efficiency such that:
+
+$$\eta=(P_j-P_i)/P_i$$
+
+$$Where: \quad P_i = \quad Average \quad Stock \quad Price \quad Of \quad the \quad Company \quad at \quad month \quad i$$
+
+Let i=earliest month in owr data, and j=latest month. thus:
+
+```{r}
+
+data %>% group_by(m,y,symbol) %>% 
+  filter(m==8, y %in%c(2010,2009)) %>% 
+  group_by(y,Name) %>% 
+  summarise(avrg=round(mean(avrg),2)) %>% 
+  spread(y,avrg) ->effic
+names(effic)=c("Name","First","Last")
+
+effic %>% mutate(eta = round(Last/First-1,2) , delta = Last-First)->effic
+
+```
+
+The companies with the highest progress percentage:
+```{r}
+effic = effic[order(desc(effic$eta)),]
+knitr::kable(effic[1:10,c(1,4)])
+```
+
+The companies with the highest pure increase in stock price
+
+```{r}
+effic = effic[order(desc(effic$delta)),]
+knitr::kable(effic[1:10,c(1,5)])
+```
+
+overall progress:
+
+```{r}
+highchart() %>% 
+  hc_add_series_boxplot(effic$eta,name = "Efficiency Rate") %>% 
+  hc_add_series_boxplot(effic$delta, name = " Pure Stock Price Change") %>% 
+  hc_title(text = "Distribution of change within all of the companies") %>% 
+  hc_add_theme(hc_theme_538())
+```
+
+## Companies with The Highest Number of Transactions
+
+To find out the answer, we visualize the distribution of couple of the 
+
+```{r}
+cf %>% select(symbol = Symbol,Name,Sector)->names
+data <- merge(names,data)
+
+data %>% group_by(symbol) %>% summarise(meanval = round(mean(volume)))-> compval
+compval <- compval[order(desc(compval$meanval)),] 
+compval <- compval[1:10,]
+highchart() %>% 
+  hc_add_series_boxplot(filter(data,symbol %in% compval$symbol)$volume,
+                        by = filter(data,symbol %in% compval$symbol)$Name, 
+                        group = filter(data,symbol %in% compval$symbol)$Sector,
+                        name = "Distribution of The Volume of Transactions",
+                        colorByPoint = T) %>% 
+  hc_add_theme(hc_theme_538()) %>% 
+  hc_title(text = "Comparision of Volume of Transactions Amongst Corporations")
+```
+
+As we can see, the following are the top 10 companies with the highest transaction rates:
+
+```{r}
+compval<-merge(names,compval,all.y=T)
+knitr::kable(compval[,c(2,3,4)])
+```
+
+## Principal Indexes For The stock market
+
+The market value should be proportional to amount of money transferred in the market per day. thus, the average price of each corporation's stock, multiplied by the number of transactions should give a good estimation of the market value.
+
+```{r}
+
+#creating the index
+data %>% filter(!is.na(open)) %>% mutate(index = round(volume*avrg))->data
+
+#preparing the vectors for applying pca
+reshape2::dcast(day~symbol,data=data,value.var=c("index"))->matr
+matr = matr[,-1]
+matr[is.na(matr)]=0
+
+#calculating pca
+pca.mat=prcomp(matr)
+summary(pca.mat)$importance[3,1:20]
+
+```
+
+Let's see how well these components describe the variance:
+
+```{r}
+plot(summary(pca.mat)$importance[3,], type="l",
+     ylab="%variance explained", xlab="nth component (decreasing order)")
+```
+
+we'll keep the first 5 components. 
+
+```{r}
+chosen.components = 1:5
+feature.vector = pca.mat$rotation[,chosen.components]
+feature.vector[1:10,1:5]
+```
+
+Finding out the most influencial companies in determining our new components:
+
+```{r}
+biplot(pca.mat,cex=0.8)
+```
+
+Now we'll create the index for each day. 
+
+```{r}
+data %>% group_by(DATE) %>% summarise(count = n())->dates
+indexes = as.matrix(matr) %*% feature.vector
+sp1  = cbind(DATE = dates$DATE,data.frame(indexes))
+```
+
+visualizing these indexes:
+
+```{r}
+highchart() %>% 
+  hc_add_series_ts(as.ts(sp1$PC1),name = "PC1") %>% 
+  hc_add_series_ts(as.ts(sp1$PC2),name = "PC2") %>% 
+  hc_add_series_ts(as.ts(sp1$PC3),name = "PC3") %>% 
+  hc_add_series_ts(as.ts(sp1$PC4),name = "PC4") %>% 
+  hc_add_series_ts(as.ts(sp1$PC5),name = "PC5") %>%
+  hc_add_theme(hc_theme_538()) %>% 
+  hc_title(text = "Changes of the 5 principal indexes over one year's time")
+```
+
+## Comparing with S&P Index
+
+first, we merge the data:
+
+```{r}
+spdata<-merge(sp1,sp,all.x=T)
+spdata$VALUE = as.integer(spdata$VALUE)
+```
+
+now we normalize these indexes and compare their change over time.
+
+```{r}
+spdata$VALUE = round(scale(spdata$VALUE),4)
+spdata$PC1 = round(scale(spdata$PC1),4)
+spdata$PC2 = round(scale(spdata$PC2),4)
+spdata$PC3 = round(scale(spdata$PC3),4)
+spdata$PC4 = round(scale(spdata$PC4),4)
+spdata$PC5 = round(scale(spdata$PC5),4)
+highchart() %>%
+  hc_add_series_ts(as.ts(spdata$PC1),name = "PC1") %>% 
+  hc_add_series_ts(as.ts(spdata$PC2),name = "PC2") %>% 
+  hc_add_series_ts(as.ts(spdata$PC3),name = "PC3") %>% 
+  hc_add_series_ts(as.ts(spdata$PC4),name = "PC4") %>% 
+  hc_add_series_ts(as.ts(spdata$PC5),name = "PC5") %>%
+  hc_add_series_ts(as.ts(spdata$VALUE), name = "S&P") %>% 
+  hc_add_theme(hc_theme_economist()) %>% 
+  hc_title(text = "Changes of the s&p and our indexes over one year's time")
+  
+```
+
+we can see that our indexes combined together can explain the s&p factor in most of the points.
+
+## Factor Analysis: Finding Hidden Factors of The Market
+
+### Finding the number of influential factors:
+
+```{r}
+data <- read.csv("data/sp500hst.txt", header=FALSE,stringsAsFactors = T)
+names(data)<-c("day","symbol","open","high","low","close","volume")
+data$symbol=as.integer(data$symbol)
+data %>% select(symbol,open,high,low,close,volume)->data
+
+parallel = fa.parallel(data, fm="ml",fa="fa")
+```
+
+There are 2 indexes or factors in this data, so there's one hidden factor besides s&p index.
+
+### Creating the model
+
+```{r}
+famodel = factanal(data, factors = 2, method ="mle",scores = "regression")
+print(famodel)
+```
+
+### Finding the loadings and important  companies
+
+```{r}
+score = famodel$scores
+plot(score[,1:2])
+```
+
+
+***
+***
