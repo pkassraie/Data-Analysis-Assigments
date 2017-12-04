@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Association Rules</title>
+  <meta name="description" content="">
+  <meta name="author" content="Ahmad Ehyaei">
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="./frameworks/revealjs/css/reveal.min.css">
+  <link rel="stylesheet" href="./frameworks/revealjs/css/theme/sky.css" id="theme">
+  <link rel="stylesheet" href="./highlighters/highlight.js/css/tomorrow.css" id="theme">
+  <!--[if lt IE 9]>
+  <script src="lib/js/html5shiv.js"></script>
+  <![endif]-->  
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section class='' data-state='' id='slide-1'>
+  
+  <style>
+body {
+  background-image:url(dataanalysis.png),url(sharif.png), url(backgrounds.jpg);
+  background-repeat: no-repeat;
+  background-position:5% 5%, 95% 5%, center center;
+  background-size: 50px 50px,50px 50px, cover;
+}
+slides img{border:0; opacity:0;}
+</style>
+
+<p><a href="#" class="image navigate-down">
+  <img height="562" src="images/Amazon_Funny.jpg" alt="Down arrow">
+</a></p>
+
+<p>Association Rules</p>
+
+<p><small> Created by: Ahmad Ehyaei</small></p>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+
+</section>
+<section>
+   <section class='' data-state=''>
+    <h3><strong>Association Rules</strong></h3>
+    <p>There are many ways to see the similarities between items. These are techniques that fall under the general umbrella of association. The outcome of this type of technique, in simple terms, is a set of rules that can be understood as <strong>if this, then that</strong>.</p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <h3><strong>Applications</strong></h3>
+
+<p>So what kind of items are we talking about? There are many applications of association:</p>
+
+<ul>
+<li><p>Product recommendation – like Amazon’s “customers who bought that, also bought this”</p></li>
+<li><p>Music recommendations – like Last FM’s artist recommendations</p></li>
+<li><p>Medical diagnosis – like with diabetes really cool stuff</p></li>
+<li><p>Content optimisation – like in magazine websites or blogs</p></li>
+</ul>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <h3><strong>The Groceries Dataset</strong></h3>
+
+<p>Imagine 10000 receipts sitting on your table. Each receipt represents a transaction with items that were purchased. The receipt is a representation of stuff that went into a customer’s basket – and therefore ‘Market Basket Analysis’.</p>
+
+<p>That is exactly what the Groceries Data Set contains: a collection of receipts with each line representing 1 receipt and the items purchased. Each line is called a transaction and each column in a row represents an item.</p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Data</strong></p>
+
+<pre><code class="r">grocery = readLines(&quot;data/groceries.csv&quot;)
+head(grocery,10)
+</code></pre>
+
+<pre><code> [1] &quot;citrus fruit,semi-finished bread,margarine,ready soups&quot;              
+ [2] &quot;tropical fruit,yogurt,coffee&quot;                                        
+ [3] &quot;whole milk&quot;                                                          
+ [4] &quot;pip fruit,yogurt,cream cheese ,meat spreads&quot;                         
+ [5] &quot;other vegetables,whole milk,condensed milk,long life bakery product&quot; 
+ [6] &quot;whole milk,butter,yogurt,rice,abrasive cleaner&quot;                      
+ [7] &quot;rolls/buns&quot;                                                          
+ [8] &quot;other vegetables,UHT-milk,rolls/buns,bottled beer,liquor (appetizer)&quot;
+ [9] &quot;pot plants&quot;                                                          
+[10] &quot;whole milk,cereals&quot;                                                  
+</code></pre>
+
+<pre><code class="r">basket = lapply(grocery,FUN = function(x) strsplit(x,split = &quot;,&quot;)[[1]])
+</code></pre>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Mathematical Formalism</strong></p>
+
+<p>We already discussed the concept of Items and Item Sets.</p>
+
+<p>We can represent our items as an item set as follows:</p>
+
+<p>\[I = \{ i_1,i_2,…,i_n \}\]</p>
+
+<p>Therefore a transaction is represented as follows:</p>
+
+<p>\[t_n = { i_{j_1},i_{j_2},…,i_{j_k} }\]</p>
+
+<p>This gives us our rules which are represented as follows:</p>
+
+<p>\[\{ i_1,i_2\}  \Rightarrow \{i_k\}\]</p>
+
+<p>A more human readable example is:</p>
+
+<p>\[\{coffee,sugar\}  \Rightarrow \{milk\}\]</p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+</section>
+<section>
+   <section class='' data-state=''>
+    
+    <p><strong>Association Rules</strong></p>
+
+<p>For find association rules we can understand three important ratios:</p>
+
+<ul>
+<li><p><strong>Support</strong>: The fraction of which our item set occurs in our dataset.</p></li>
+<li><p><strong>Confidence</strong>: probability that a rule is correct for a new transaction with items on the left.</p></li>
+<li><p><strong>Lift</strong>: The ratio by which by the confidence of a rule exceeds the expected confidence. </p></li>
+</ul>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Association Rules</strong></p>
+
+<p><strong>Support</strong></p>
+
+<p>The support value of \(X\) (\(\mathrm {supp} (X)\)) with respect to \(T\) is defined as the proportion of transactions in the database which contains the item-set \(X\).</p>
+
+<p><strong>Confidence</strong></p>
+
+<p>The confidence value of a rule, \(X\Rightarrow Y\) , with respect to a set of transactions \(T\), is the proportion the transactions that contains \(X\) which also contains \(Y\).
+Confidence is defined as:</p>
+
+<p>\[\mathrm {conf} (X\Rightarrow Y)=\mathrm {supp} (X\cup Y)/\mathrm {supp} (X).\]</p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Lift</strong></p>
+
+<p>The lift of a rule is defined as:</p>
+
+<p>\[\mathrm {lift} (X\Rightarrow Y)={\frac {\mathrm {supp} (X\cup Y)}{\mathrm {supp} (X)\times \mathrm {supp} (Y)}}\]</p>
+
+<p>or the ratio of the observed support to that expected if \(X\) and \(Y\) were independent.</p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Apriori Recommendation with R</strong></p>
+
+<p>Association rules are usually required to satisfy a user-specified minimum support and a user-specified minimum confidence at the same time. Association rule generation is usually split up into two separate steps:</p>
+
+<ul>
+<li><p>A minimum support threshold is applied to find all frequent item-sets in a database.</p></li>
+<li><p>A minimum confidence constraint is applied to these frequent item-sets in order to form rules.</p></li>
+</ul>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Apriori Algorithm</strong></p>
+
+<p>Let \(X, Y ⊆ I\) be any two itemsets.</p>
+
+<p>Observe that if \(X ⊆ Y\) , then \(sup(X) ≥ sup(Y)\), which leads to the following two corollaries:</p>
+
+<p>If \(X\) is frequent, then any subset \(Y ⊆ X\) is also frequent.
+If \(X\) is not frequent, then any superset \(Y ⊇ X\) cannot be frequent.</p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Apriori Algorithm</strong></p>
+
+<p><img height="600" src="images/apriori1.png" style="background:none; border:none; box-shadow:none;"></p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong><a href="http://www.saedsayad.com/">Apriori Algorithm</a></strong></p>
+
+<ul>
+<li><p>Candidate itemsets are generated using only the large itemsets of the previous pass without considering the transactions in the database.</p></li>
+<li><p>The large itemset of the previous pass is joined with itself to generate all itemsets whose size is higher by 1.</p></li>
+<li><p>Each generated itemset that has a subset which is not large is deleted. The remaining itemsets are the candidate ones.</p></li>
+</ul>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong><a href="http://www.saedsayad.com/">Apriori Algorithm</a></strong></p>
+
+<p><img height="600" src="images/AR_4.png" style="background:none; border:none; box-shadow:none;"></p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong><a href="http://www.saedsayad.com/">Apriori Algorithm</a></strong></p>
+
+<p>The Apriori algorithm takes advantage of the fact that any subset of a frequent itemset is also a frequent itemset. The algorithm can therefore, reduce the number of candidates being considered by only exploring the itemsets whose support count is greater than the minimum support count. All infrequent itemsets can be pruned if it has an infrequent subset.</p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+</section>
+<section>
+   <section class='' data-state=''>
+    
+    <p><strong>Find item frequency</strong></p>
+
+<pre><code class="r">library(arules)
+library(arulesViz)
+library(colorspace)
+data(Groceries)
+itemFrequency(Groceries[,1:5])
+</code></pre>
+
+<pre><code>## frankfurter     sausage  liver loaf         ham        meat 
+## 0.058973055 0.093950178 0.005083884 0.026029487 0.025826131
+</code></pre>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p>Visualize item support - item frequency plots</p>
+
+<pre><code class="r">itemFrequencyPlot(Groceries, support=0.1)
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-4-1.png" alt="plot of chunk unnamed-chunk-4"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <pre><code class="r">itemFrequencyPlot(Groceries, topN=20)
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-5-1.png" alt="plot of chunk unnamed-chunk-5"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Visualizing random 100 transactions</strong></p>
+
+<pre><code class="r">image(sample(Groceries, 100))
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-6-1.png" alt="plot of chunk unnamed-chunk-6"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Implementation of Apriori algorithm</strong></p>
+
+<pre><code class="r">grules = apriori(Groceries, parameter = list(support = 0.009,
+                                             confidence = 0.25, minlen = 2))
+</code></pre>
+
+<pre><code>
+Parameter specification:
+ confidence minval smax arem  aval originalSupport support minlen maxlen
+       0.25    0.1    1 none FALSE            TRUE   0.009      2     10
+ target   ext
+  rules FALSE
+
+Algorithmic control:
+ filter tree heap memopt load sort verbose
+    0.1 TRUE TRUE  FALSE TRUE    2    TRUE
+
+apriori - find association rules with the apriori algorithm
+version 4.21 (2004.05.09)        (c) 1996-2004   Christian Borgelt
+set item appearances ...[0 item(s)] done [0.00s].
+set transactions ...[169 item(s), 9835 transaction(s)] done [0.00s].
+sorting and recoding items ... [93 item(s)] done [0.00s].
+creating transaction tree ... done [0.00s].
+checking subsets of size 1 2 3 4 done [0.00s].
+writing ... [224 rule(s)] done [0.00s].
+creating S4 object  ... done [0.00s].
+</code></pre>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p>Take a look at some rules</p>
+
+<pre><code class="r">inspect(grules[1:10])
+</code></pre>
+
+<pre><code>   lhs                rhs                    support confidence     lift
+1  {baking powder} =&gt; {whole milk}       0.009252669  0.5229885 2.046793
+2  {grapes}        =&gt; {other vegetables} 0.009049314  0.4045455 2.090754
+3  {meat}          =&gt; {other vegetables} 0.009964413  0.3858268 1.994013
+4  {meat}          =&gt; {whole milk}       0.009964413  0.3858268 1.509991
+5  {frozen meals}  =&gt; {whole milk}       0.009862735  0.3476703 1.360659
+6  {hard cheese}   =&gt; {other vegetables} 0.009456024  0.3858921 1.994350
+7  {hard cheese}   =&gt; {whole milk}       0.010066090  0.4107884 1.607682
+8  {butter milk}   =&gt; {other vegetables} 0.010371124  0.3709091 1.916916
+9  {butter milk}   =&gt; {whole milk}       0.011591256  0.4145455 1.622385
+10 {ham}           =&gt; {other vegetables} 0.009150991  0.3515625 1.816930
+</code></pre>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Understanding association rules</strong></p>
+
+<p>A common approach is to take the result of learning association rules and divide them into three categories</p>
+
+<ul>
+<li><p>Actionable - The goal of a market basket analysis is to find actionable associations, or rules that provide a clear and useful insight. Some rules are clear, others are useful; it is less common to find a combination of both of these factors.</p></li>
+<li><p>Trivial - Any rules that are so obvious that they are not worth mentioning, they are clear, but not useful.</p></li>
+<li><p>Inexplicable - If the connection between the items is so unclear that figuring out how to use the information for action would require additional research.</p></li>
+</ul>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Deeper look - sorting the set of association rules</strong></p>
+
+<pre><code class="r">inspect(sort(grules, by = &quot;lift&quot;)[1:8])
+</code></pre>
+
+<pre><code>  lhs                   rhs                      support confidence     lift
+1 {berries}          =&gt; {whipped/sour cream} 0.009049314  0.2721713 3.796886
+2 {tropical fruit,                                                          
+   other vegetables} =&gt; {pip fruit}          0.009456024  0.2634561 3.482649
+3 {pip fruit,                                                               
+   other vegetables} =&gt; {tropical fruit}     0.009456024  0.3618677 3.448613
+4 {citrus fruit,                                                            
+   other vegetables} =&gt; {root vegetables}    0.010371124  0.3591549 3.295045
+5 {tropical fruit,                                                          
+   other vegetables} =&gt; {root vegetables}    0.012302999  0.3427762 3.144780
+6 {tropical fruit,                                                          
+   other vegetables} =&gt; {citrus fruit}       0.009049314  0.2521246 3.046248
+7 {beef}             =&gt; {root vegetables}    0.017386884  0.3313953 3.040367
+8 {citrus fruit,                                                            
+   root vegetables}  =&gt; {other vegetables}   0.010371124  0.5862069 3.029608
+</code></pre>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Subset of association rules</strong></p>
+
+<pre><code class="r">beefrules = subset(grules, items %in% c(&quot;beef&quot;,&quot;sausage&quot;))
+inspect(sort(beefrules, by = &quot;lift&quot;)[1:8])
+</code></pre>
+
+<pre><code>  lhs                   rhs                    support confidence     lift
+1 {beef}             =&gt; {root vegetables}  0.017386884  0.3313953 3.040367
+2 {rolls/buns,                                                            
+   soda}             =&gt; {sausage}          0.009659380  0.2519894 2.682160
+3 {beef,                                                                  
+   whole milk}       =&gt; {other vegetables} 0.009252669  0.4354067 2.250250
+4 {sausage,                                                               
+   soda}             =&gt; {rolls/buns}       0.009659380  0.3974895 2.161034
+5 {beef}             =&gt; {other vegetables} 0.019725470  0.3759690 1.943066
+6 {beef,                                                                  
+   other vegetables} =&gt; {whole milk}       0.009252669  0.4690722 1.835784
+7 {sausage,                                                               
+   rolls/buns}       =&gt; {soda}             0.009659380  0.3156146 1.809953
+8 {sausage}          =&gt; {rolls/buns}       0.030604982  0.3257576 1.771048
+</code></pre>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Association rules - Scatter Plot</strong></p>
+
+<pre><code class="r">plot(grules)
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-11-1.png" alt="plot of chunk unnamed-chunk-11"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Association rules - Scatter Plot</strong></p>
+
+<pre><code class="r">plot(grules, measure=c(&quot;support&quot;, &quot;lift&quot;), shading=&quot;confidence&quot;)
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-12-1.png" alt="plot of chunk unnamed-chunk-12"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Matrix based visulaization</strong></p>
+
+<pre><code class="r">plot(beefrules, method=&quot;matrix&quot;, measure=&quot;lift&quot;)
+</code></pre>
+
+<pre><code>Itemsets in Antecedent (LHS)
+[1] &quot;{beef}&quot;                     &quot;{sausage}&quot;                 
+[3] &quot;{beef,other vegetables}&quot;    &quot;{beef,whole milk}&quot;         
+[5] &quot;{sausage,soda}&quot;             &quot;{sausage,rolls/buns}&quot;      
+[7] &quot;{rolls/buns,soda}&quot;          &quot;{sausage,whole milk}&quot;      
+[9] &quot;{sausage,other vegetables}&quot;
+Itemsets in Consequent (RHS)
+[1] &quot;{root vegetables}&quot;  &quot;{rolls/buns}&quot;       &quot;{other vegetables}&quot;
+[4] &quot;{whole milk}&quot;       &quot;{soda}&quot;             &quot;{sausage}&quot;         
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-13-1.png" alt="plot of chunk unnamed-chunk-13"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Matrix based visulaization</strong></p>
+
+<pre><code class="r">plot(beefrules, method=&quot;matrix&quot;, measure=c(&quot;lift&quot;, &quot;confidence&quot;),
+     control=list(reorder=TRUE, col=sequential_hcl(200)))
+</code></pre>
+
+<pre><code>Itemsets in Antecedent (LHS)
+[1] &quot;{rolls/buns,soda}&quot;          &quot;{beef,whole milk}&quot;         
+[3] &quot;{sausage,whole milk}&quot;       &quot;{sausage,soda}&quot;            
+[5] &quot;{sausage,other vegetables}&quot; &quot;{beef,other vegetables}&quot;   
+[7] &quot;{sausage,rolls/buns}&quot;       &quot;{sausage}&quot;                 
+[9] &quot;{beef}&quot;                    
+Itemsets in Consequent (RHS)
+[1] &quot;{rolls/buns}&quot;       &quot;{other vegetables}&quot; &quot;{root vegetables}&quot; 
+[4] &quot;{whole milk}&quot;       &quot;{soda}&quot;             &quot;{sausage}&quot;         
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-14-1.png" alt="plot of chunk unnamed-chunk-14"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Grouped Matrix based visualization</strong></p>
+
+<pre><code class="r">plot(beefrules, method=&quot;grouped&quot;, measure=&quot;support&quot;,
+     control=list(col=sequential_hcl(100)))
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-15-1.png" alt="plot of chunk unnamed-chunk-15"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Graph based visualizations</strong></p>
+
+<pre><code class="r">plot(beefrules, method=&quot;graph&quot;, control=list(type=&quot;items&quot;))
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-16-1.png" alt="plot of chunk unnamed-chunk-16"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p><strong>Parallel coordinates plot</strong></p>
+
+<pre><code class="r">plot(beefrules, method=&quot;paracoord&quot;, control=list(reorder=TRUE))
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-17-1.png" alt="plot of chunk unnamed-chunk-17"> </p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+   <section class='' data-state=''>
+    <p>Saving Association rules</p>
+
+<pre><code class="r">write(grules, file = &quot;data/grules.csv&quot;, sep = &quot;,&quot;,
+      quote = TRUE, row.names = FALSE)
+</code></pre>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+</section>
+<section>
+   <section class='' data-state=''>
+    <h2>Thank You for Attention</h2>
+    <p><a href="#" class="image navigate-down">
+  <img width="533" height="459" src="images/data.gif" style="background:none; border:none; box-shadow:none;">
+</a></p>
+
+    <aside class='notes'>
+      
+    </aside>
+   </section>
+</section>
+    </div>
+  </div>
+</body>
+  <script src="./frameworks/revealjs/lib/js/head.min.js"></script>
+  <script src="./frameworks/revealjs/js/reveal.min.js"></script>
+  <script>
+  // Full list of configuration options available here:
+  // https://github.com/hakimel/reveal.js#configuration
+  Reveal.initialize({
+    controls: true,
+    progress: true,
+    history: true,
+    center: true,
+    theme: Reveal.getQueryHash().theme || 'sky', 
+    transition: Reveal.getQueryHash().transition || 'cube', 
+    dependencies: [
+    // Cross-browser shim that fully implements classList -
+    // https://github.com/eligrey/classList.js/
+      { src: './frameworks/revealjs/lib/js/classList.js', condition: function() { return !document.body.classList;}},
+      // Zoom in and out with Alt+click
+      { src: './frameworks/revealjs/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+      // Speaker notes
+      { src: './frameworks/revealjs/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+      // Remote control your reveal.js presentation using a touch device
+      //{ src: './frameworks/revealjs/plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+      ]
+  });
+  </script>  <!-- MathJax: Fall back to local if CDN offline but local image fonts are not supported (saves >100MB) -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [['$','$'], ['\\(','\\)']],
+      processEscapes: true
+    }
+  });
+</script>
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/2.0-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+<!-- <script src="https://c328740.ssl.cf1.rackcdn.com/mathjax/2.0-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script> -->
+<script>window.MathJax || document.write('<script type="text/x-mathjax-config">MathJax.Hub.Config({"HTML-CSS":{imageFont:null}});<\/script><script src="./widgets/mathjax/MathJax.js?config=TeX-AMS-MML_HTMLorMML"><\/script>')
+</script>
+<!-- LOAD HIGHLIGHTER JS FILES -->
+<script src="./highlighters/highlight.js/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<!-- DONE LOADING HIGHLIGHTER JS FILES -->
+ 
+
+</html>

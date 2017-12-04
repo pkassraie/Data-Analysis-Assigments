@@ -1,0 +1,359 @@
+---
+title: "Association Rules"
+author: "Ahmad Ehyaei"
+mode : selfcontained
+onefile: True
+widgets     : [mathjax]            # {mathjax, quiz, bootstrap}
+framework: revealjs
+ext_widgets : {rCharts: libraries/nvd3}
+revealjs:
+  theme: sky
+  transition: cube
+  center: "true"
+url: {lib: "."}
+bootstrap:
+  theme: amelia
+---
+
+<style>
+body {
+  background-image:url(dataanalysis.png),url(sharif.png), url(backgrounds.jpg);
+  background-repeat: no-repeat;
+  background-position:5% 5%, 95% 5%, center center;
+  background-size: 50px 50px,50px 50px, cover;
+}
+slides img{border:0; opacity:0;}
+</style>
+
+
+<a href="#" class="image navigate-down">
+  <img height="562" src="images/Amazon_Funny.jpg" alt="Down arrow">
+</a>
+
+Association Rules
+
+<small> Created by: Ahmad Ehyaei</small>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+
+```{r , echo = FALSE}
+library(knitr)
+options(width = 100)
+
+opts_chunk$set(message = F, error = F, warning = F, comment = NA, fig.align = 'center', dpi = 100, tidy = F, cache.path = '.cache/', fig.path = 'fig/', comment = "")
+
+options(xtable.type = 'html')
+knit_hooks$set(inline = function(x) {
+  if(is.numeric(x)) {
+    round(x, getOption('digits'))
+  } else {
+    paste(as.character(x), collapse = ', ')
+  }
+})
+knit_hooks$set(plot = knitr:::hook_plot_html)
+```
+
+--- &vertical
+
+### **Association Rules**
+
+There are many ways to see the similarities between items. These are techniques that fall under the general umbrella of association. The outcome of this type of technique, in simple terms, is a set of rules that can be understood as **if this, then that**.
+
+***
+
+### **Applications**
+
+So what kind of items are we talking about? There are many applications of association:
+
+* Product recommendation – like Amazon’s “customers who bought that, also bought this”
+
+* Music recommendations – like Last FM’s artist recommendations
+* Medical diagnosis – like with diabetes really cool stuff
+* Content optimisation – like in magazine websites or blogs
+
+***
+
+### **The Groceries Dataset**
+
+Imagine 10000 receipts sitting on your table. Each receipt represents a transaction with items that were purchased. The receipt is a representation of stuff that went into a customer’s basket – and therefore ‘Market Basket Analysis’.
+
+That is exactly what the Groceries Data Set contains: a collection of receipts with each line representing 1 receipt and the items purchased. Each line is called a transaction and each column in a row represents an item.
+
+***
+
+**Data**
+
+```{r,comment=""}
+grocery = readLines("data/groceries.csv")
+head(grocery,10)
+basket = lapply(grocery,FUN = function(x) strsplit(x,split = ",")[[1]])
+```
+
+***
+
+**Mathematical Formalism**
+
+We already discussed the concept of Items and Item Sets.
+
+We can represent our items as an item set as follows:
+
+$$I = \{ i_1,i_2,…,i_n \}$$
+
+Therefore a transaction is represented as follows:
+
+$$t_n = { i_{j_1},i_{j_2},…,i_{j_k} }$$
+
+This gives us our rules which are represented as follows:
+
+$$\{ i_1,i_2\}  \Rightarrow \{i_k\}$$
+
+A more human readable example is:
+
+$$\{coffee,sugar\}  \Rightarrow \{milk\}$$
+
+--- &vertical
+
+
+**Association Rules**
+
+For find association rules we can understand three important ratios:
+
+* **Support**: The fraction of which our item set occurs in our dataset.
+
+* **Confidence**: probability that a rule is correct for a new transaction with items on the left.
+
+* **Lift**: The ratio by which by the confidence of a rule exceeds the expected confidence. 
+
+***
+
+**Association Rules**
+
+**Support**
+
+The support value of $X$ ($\mathrm {supp} (X)$) with respect to $T$ is defined as the proportion of transactions in the database which contains the item-set $X$.
+
+**Confidence**
+
+The confidence value of a rule, $X\Rightarrow Y$ , with respect to a set of transactions $T$, is the proportion the transactions that contains $X$ which also contains $Y$.
+Confidence is defined as:
+
+$$\mathrm {conf} (X\Rightarrow Y)=\mathrm {supp} (X\cup Y)/\mathrm {supp} (X).$$
+
+***
+
+**Lift**
+
+The lift of a rule is defined as:
+
+$$\mathrm {lift} (X\Rightarrow Y)={\frac {\mathrm {supp} (X\cup Y)}{\mathrm {supp} (X)\times \mathrm {supp} (Y)}}$$
+
+or the ratio of the observed support to that expected if $X$ and $Y$ were independent.
+
+
+***
+
+**Apriori Recommendation with R**
+
+Association rules are usually required to satisfy a user-specified minimum support and a user-specified minimum confidence at the same time. Association rule generation is usually split up into two separate steps:
+* A minimum support threshold is applied to find all frequent item-sets in a database.
+
+* A minimum confidence constraint is applied to these frequent item-sets in order to form rules.
+
+***
+
+**Apriori Algorithm**
+
+Let $X, Y ⊆ I$ be any two itemsets.
+
+Observe that if $X ⊆ Y$ , then $sup(X) ≥ sup(Y)$, which leads to the following two corollaries:
+
+If $X$ is frequent, then any subset $Y ⊆ X$ is also frequent.
+If $X$ is not frequent, then any superset $Y ⊇ X$ cannot be frequent.
+
+***
+
+**Apriori Algorithm**
+
+<img height="600" src="images/apriori1.png" style="background:none; border:none; box-shadow:none;">
+
+***
+
+**[Apriori Algorithm](http://www.saedsayad.com/)**
+
+* Candidate itemsets are generated using only the large itemsets of the previous pass without considering the transactions in the database.
+
+* The large itemset of the previous pass is joined with itself to generate all itemsets whose size is higher by 1.
+
+* Each generated itemset that has a subset which is not large is deleted. The remaining itemsets are the candidate ones.
+
+***
+
+**[Apriori Algorithm](http://www.saedsayad.com/)**
+
+<img height="600" src="images/AR_4.png" style="background:none; border:none; box-shadow:none;">
+
+***
+
+**[Apriori Algorithm](http://www.saedsayad.com/)**
+
+The Apriori algorithm takes advantage of the fact that any subset of a frequent itemset is also a frequent itemset. The algorithm can therefore, reduce the number of candidates being considered by only exploring the itemsets whose support count is greater than the minimum support count. All infrequent itemsets can be pruned if it has an infrequent subset.
+
+--- &vertical
+
+**Find item frequency**
+
+```{r}
+library(arules)
+library(arulesViz)
+library(colorspace)
+data(Groceries)
+itemFrequency(Groceries[,1:5])
+```
+
+***
+
+Visualize item support - item frequency plots
+
+```{r}
+itemFrequencyPlot(Groceries, support=0.1)
+```
+
+***
+
+```{r}
+itemFrequencyPlot(Groceries, topN=20)
+```
+
+***
+
+**Visualizing random 100 transactions**
+
+```{r}
+image(sample(Groceries, 100))
+```
+
+***
+
+**Implementation of Apriori algorithm**
+
+```{r,comment=""}
+grules = apriori(Groceries, parameter = list(support = 0.009,
+                                             confidence = 0.25, minlen = 2))
+```
+
+***
+
+Take a look at some rules
+
+```{r,comment=""}
+inspect(grules[1:10])
+```
+
+***
+
+**Understanding association rules**
+
+A common approach is to take the result of learning association rules and divide them into three categories
+
+* Actionable - The goal of a market basket analysis is to find actionable associations, or rules that provide a clear and useful insight. Some rules are clear, others are useful; it is less common to find a combination of both of these factors.
+
+* Trivial - Any rules that are so obvious that they are not worth mentioning, they are clear, but not useful.
+
+* Inexplicable - If the connection between the items is so unclear that figuring out how to use the information for action would require additional research.
+
+***
+
+**Deeper look - sorting the set of association rules**
+
+```{r,comment=""}
+inspect(sort(grules, by = "lift")[1:8])
+```
+
+***
+
+**Subset of association rules**
+
+```{r,comment=""}
+beefrules = subset(grules, items %in% c("beef","sausage"))
+inspect(sort(beefrules, by = "lift")[1:8])
+```
+
+***
+
+**Association rules - Scatter Plot**
+
+```{r}
+plot(grules)
+```
+
+***
+
+**Association rules - Scatter Plot**
+
+```{r}
+plot(grules, measure=c("support", "lift"), shading="confidence")
+```
+
+***
+
+**Matrix based visulaization**
+
+```{r,comment=""}
+plot(beefrules, method="matrix", measure="lift")
+```
+
+***
+
+**Matrix based visulaization**
+
+```{r, comment=""}
+plot(beefrules, method="matrix", measure=c("lift", "confidence"),
+     control=list(reorder=TRUE, col=sequential_hcl(200)))
+```
+
+***
+
+**Grouped Matrix based visualization**
+
+```{r}
+plot(beefrules, method="grouped", measure="support",
+     control=list(col=sequential_hcl(100)))
+```
+
+***
+
+**Graph based visualizations**
+
+```{r}
+plot(beefrules, method="graph", control=list(type="items"))
+```
+
+***
+
+**Parallel coordinates plot**
+
+```{r}
+plot(beefrules, method="paracoord", control=list(reorder=TRUE))
+```
+
+***
+
+Saving Association rules
+
+```{r}
+write(grules, file = "data/grules.csv", sep = ",",
+      quote = TRUE, row.names = FALSE)
+```
+
+
+--- &vertical
+
+## Thank You for Attention
+
+<a href="#" class="image navigate-down">
+  <img width="533" height="459" src="images/data.gif" style="background:none; border:none; box-shadow:none;">
+</a>
+
+
+
+
