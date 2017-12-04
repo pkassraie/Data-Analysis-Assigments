@@ -1,0 +1,231 @@
+---
+title: "HW10"
+author: "Parnian kassraie - 93111185"
+date: "December 27, 2016"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = F, message = F, warning = F, fig.align = "center")
+```
+
+```{r}
+library(rvest)
+library(dplyr)
+library(stringr)
+library(stringi)
+library(highcharter)
+```
+
+### 1. Finding Relation between scoring and other variables
+
+First We create a data frame from the html table:
+
+```{r}
+urlranking = "World University Rankings 2017 _ Times Higher Education (THE).html"
+urlscore = "Scores - World University Rankings 2017 _ Times Higher Education (THE).html"
+
+doc = urlranking %>% read_html()
+docs = urlscore %>% read_html()
+
+ranking = doc %>% html_table() %>% .[[1]]
+scoring = docs %>% html_table() %>% .[[1]]
+
+doc %>% html_nodes(".ranking-institution-title") %>% html_text()->UniNameRank
+docs %>% html_nodes(".ranking-institution-title") %>% html_text()->UniNameScore
+ranking$Name = UniNameRank
+scoring$Name = UniNameScore
+
+doc %>% html_nodes(".location") %>% html_text() ->LocationRank
+docs %>% html_nodes(".location") %>% html_text() ->LocationScore
+
+ranking[,"Location"] = LocationRank
+scoring[,"Location"] = LocationScore
+
+ranking$url = doc %>% html_nodes(".ranking-institution-title") %>% html_attr("href")
+scoring$url = docs %>% html_nodes(".ranking-institution-title") %>% html_attr("href")
+
+scoring$Overall = as.numeric(scoring$Overall)
+scoring$Citations = as.numeric(scoring$Citations)
+scoring$`Industry Income` = as.numeric(scoring$`Industry Income`)
+scoring$`International Outlook` = as.numeric(scoring$`International Outlook`)
+scoring$Research = as.numeric(scoring$Research)
+scoring$Teaching = as.numeric(scoring$Teaching)
+
+```
+
+Now Let's find the relation. To begin we try to fit a linear model on the data.
+
+```{r}
+fit = lm(Overall~Citations+`Industry Income`+`International Outlook`+Research+Teaching, scoring)
+summary(fit)
+```
+
+As You can see, all the variations in the Overall score is explained, the P value is small and all the regressors are relevant. We actually expected this result, since the overall score was calculated using these parameters at the first place. Thus, Such linear relation should exist between the variables:
+
+$$Overall_s = 0.30 Citations_s + 0.30 Research_s + 0.30 Teaching +0.03 Industry_s + 0.07 International_s $$
+
+
+### 2.Plot number of Nobel Prize Laureates and established year against university ranking 
+
+
+#### Nobel Prize Laureates
+
+We search through the paragraphs with the word "Nobel" mentioned in them and choose the smallest number.
+
+```{r}
+
+NobelNum = matrix(0,nrow = 1, ncol = length(scoring$Name))
+
+for (n in 1:length(scoring$Name)){
+    if(n==656){
+        url = "Federal University of ABC (UFABC) World University Rankings _ THE.html"
+        doc = url %>% read_html()
+        doc %>% html_nodes("p") %>% html_text()->Paragraphs
+        Guesses = character()
+        for (i in 1:length(Paragraphs)){
+          if(str_detect(Paragraphs[i],"Nobel")==T){
+                BoW = unlist(strsplit(Paragraphs[i],split = " "))
+                Guesses = c(Guesses, unlist(grep(pattern = "[0-9]", BoW,value = T)))
+                Guesses = as.numeric(gsub(",","",Guesses))
+          }
+        }
+        if(length(Guesses)!=0){
+          NobelNum[1,n] = min(Guesses, na.rm = T)
+        }
+
+    }
+    if(n!=656){
+        url = scoring$url[n]
+        doc = url %>% read_html()
+        doc %>% html_nodes("p") %>% html_text()->Paragraphs
+        Guesses = character()
+        for (i in 1:length(Paragraphs)){
+          if(str_detect(Paragraphs[i],"Nobel")==T){
+                BoW = unlist(strsplit(Paragraphs[i],split = " "))
+                Guesses = c(Guesses, unlist(grep(pattern = "[0-9]", BoW,value = T)))
+                Guesses = as.numeric(gsub(",","",Guesses))
+          }
+        }
+        if(length(Guesses)!=0){
+          NobelNum[n] = min(Guesses,na.rm = T)
+        }
+
+    }
+    
+}
+```
+
+#### Year of Establishment
+
+We Search through all the paragraphs for numbers with 4 digit and choose the smallest number as the year established.
+
+```{r}
+
+Founded = matrix(0,nrow = 1, ncol = length(scoring$Name))
+for (n in 1:length(scoring$Name)){
+  if(n!=656){
+      
+    url = scoring$url[n]
+    doc = url %>% read_html()
+    doc %>% html_nodes("p") %>% html_text()->Paragraphs
+    Guesses = character()
+    for (i in 1:length(Paragraphs)){
+      x <- Paragraphs[i]
+      m <- gregexpr(pattern = "(?<!\\d)\\d{4}(?!\\d)", x,perl = T)
+      Guesses = c(Guesses, as.numeric(unlist(regmatches(x,m))))
+      }
+    if(length(Guesses)!=0){
+      Founded[n] = min(as.integer(Guesses),na.rm = T)
+    }
+    
+    print(n)
+  }
+  if(n==656){
+      
+    url = "Federal University of ABC (UFABC) World University Rankings _ THE.html"
+    doc = url %>% read_html()
+    doc %>% html_nodes("p") %>% html_text()->Paragraphs
+    Guesses = character()
+    for (i in 1:length(Paragraphs)){
+      x <- Paragraphs[i]
+      m <- gregexpr(pattern = "(?<!\\d)\\d{4}(?!\\d)", x,perl = T)
+      Guesses = c(Guesses, as.numeric(unlist(regmatches(x,m))))
+      }
+    if(length(Guesses)!=0){
+      Founded[n] = min(as.integer(Guesses),na.rm = T)
+    }
+    
+  }
+}
+```
+
+
+Now let's plot them against ranking
+
+
+```{r}
+NobelNum[which(NobelNum>100)]=0
+scoring[,"Nobel"] = NobelNum[1,]
+scoring[,"Year"] = Founded[1,]
+hchart(scoring, type = "column", x=Rank, y=Year , group = Name) %>% 
+  hc_add_theme(hc_theme_economist()) %>%  
+  hc_title(text = "Year Established vs. University Ranking") %>%
+  hc_xAxis(title = list(text = "Ranking")) %>% 
+  hc_yAxis(title = list(text = "Year")) %>% 
+  hc_legend(enabled = F)
+
+
+hchart(scoring, type = "column", x=Rank, y=Nobel , group = Name) %>% 
+  hc_add_theme(hc_theme_economist()) %>%  
+  hc_title(text = "Nobels Won vs. University Ranking") %>%
+  hc_xAxis(title = list(text = "Estimation of Nobel Prizes")) %>% 
+  hc_yAxis(title = list(text = "Year")) %>% 
+  hc_legend(enabled = F)
+```
+
+We can see that the year established is 
+### 3. Whats the most popular major in the world?
+
+At each university page there is a chart, listing all the subjects thought in that university.
+Going through all the pages, we create a vector of charts and plot it's histogram to find out about the most popular majors in the world.
+
+```{r}
+Subjects = character()
+for (n in 1:length(scoring$Name)){
+  if(n!=656){
+    url = scoring$url[n]
+    doc = url %>% read_html()
+    doc %>% html_nodes(".taxonomy-tree__list a") %>% html_text()->tree
+    tree = gsub("\n","",tree,fixed=T)
+    tree = stri_trim_both(tree)
+    Subjects = c(Subjects, tree)
+  }
+  if(n==656){
+    url = "Federal University of ABC (UFABC) World University Rankings _ THE.html"
+    doc = url %>% read_html()
+    doc %>% html_nodes(".taxonomy-tree__list a") %>% html_text()->tree
+    tree = gsub("\n","",tree,fixed=T)
+    tree = stri_trim_both(tree)
+    Subjects = c(Subjects, tree)
+  }
+
+}
+
+A= as.data.frame(table(Subjects))
+```
+
+Plotting the results: 
+
+```{r}
+hchart(A, type = "column", x=Subjects, y=Freq , group = Subjects) %>% 
+  hc_add_theme(hc_theme_538()) %>%  
+  hc_title(text = "Popularity of Subjects") %>%
+  hc_xAxis(title = list(text = "Subject")) %>% 
+  hc_yAxis(title = list(text = "Frequency")) %>% 
+  hc_legend(enabled = F)
+```
+
